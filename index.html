@@ -91,7 +91,10 @@ ul.r{margin:10px 0 0;padding-left:18px;color:var(--mut);font-size:14px;display:f
 details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
 .note{color:var(--mut);font-size:14px;margin:12px 0 0}
 nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
-nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.chk{list-style:none;margin:0;padding:0}.chk li{border-top:1px solid var(--line)}.chk label{display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer}.chk input{width:22px;height:22px;accent-color:var(--acc)}.chk .miss{padding:10px 0;color:var(--mut);font-size:14px}
+.field label{display:block;font-weight:600;margin-bottom:4px}.field input[type=text],.field input[type=date]{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+.tab{font-size:12px}
 .tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;justify-content:center;border:0;border-radius:12px;background:transparent;color:var(--mut);font:500 13px var(--body);cursor:pointer}
 .tab[aria-current="page"]{background:var(--acc-soft);color:var(--ink)}
 .tab[aria-current="page"] .ic{color:var(--acc)}
@@ -124,6 +127,11 @@ a.btn{text-decoration:none}
 <symbol id="i-hanger" viewBox="0 0 24 24"><path d="M12 8V6.5a2 2 0 1 0-2-2M12 8l8.5 6.2A1.5 1.5 0 0 1 19.6 17H4.4a1.5 1.5 0 0 1-.9-2.8z"/></symbol>
 <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M8 4L3 7l2 4 3-1v10h8V10l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-case" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M4 13h16"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4l2.4 5 5.4.7-4 3.8 1 5.4-4.8-2.6-4.8 2.6 1-5.4-4-3.8 5.4-.7z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
 </svg>
 
 <main>
@@ -159,16 +167,6 @@ a.btn{text-decoration:none}
 <div class="head"><h2 id="count">Mes vêtements</h2><small id="count2"></small></div>
 <div class="chips" id="filters" role="group" aria-label="Filtrer par catégorie"></div>
 <div class="grid" id="list"></div>
-<div class="card" style="margin-top:16px">
-<h2>Sauvegarde</h2>
-<p class="note" style="margin-top:6px">Votre garde-robe reste sur cet appareil. Exportez-la dans un fichier pour la conserver ou la déplacer.</p>
-<div class="actions" style="margin-top:12px">
-<button class="btn" id="exp" type="button">Exporter</button>
-<input type="file" id="imp" accept=".json,application/json" class="vh">
-<label for="imp" class="btn">Importer</label>
-</div>
-<p id="bk-msg" class="dl" aria-live="polite"></p>
-</div>
 </section>
 
 <section id="v2" hidden aria-labelledby="h-day">
@@ -220,6 +218,24 @@ a.btn{text-decoration:none}
 </details>
 </div>
 </section>
+
+<section id="v3" hidden aria-labelledby="h-trip"><div id="trip-root"></div></section>
+
+<section id="v4" hidden aria-labelledby="h-more">
+<h2 id="h-more" class="vh">Plus</h2>
+<div class="card"><h2>Mes tenues favorites</h2><div id="favs"></div></div>
+<div class="card"><h2>Statistiques</h2><div id="stats"></div></div>
+<div class="card">
+<h2>Sauvegarde</h2>
+<p class="note" style="margin-top:6px">Votre garde-robe reste sur cet appareil. Exportez-la dans un fichier pour la conserver ou la déplacer.</p>
+<div class="actions" style="margin-top:12px">
+<button class="btn" id="exp" type="button">Exporter</button>
+<input type="file" id="imp" accept=".json,application/json" class="vh">
+<label for="imp" class="btn">Importer</label>
+</div>
+<p id="bk-msg" class="dl" aria-live="polite"></p>
+</div>
+</section>
 <p id="fb" hidden style="text-align:center;margin:8px 0 0"><a class="btn" id="fb-a" href="#" target="_blank" rel="noopener">Donner mon avis</a></p>
 </main>
 
@@ -228,7 +244,9 @@ a.btn{text-decoration:none}
 <nav class="bar" aria-label="Navigation">
 <div>
 <button class="tab" id="t1" type="button" aria-current="page"><svg class="ic"><use href="#i-hanger"/></svg>Garde-robe</button>
-<button class="tab" id="t2" type="button"><svg class="ic"><use href="#i-shirt"/></svg>Tenue du jour</button>
+<button class="tab" id="t2" type="button"><svg class="ic"><use href="#i-shirt"/></svg>Tenue</button>
+<button class="tab" id="t3" type="button"><svg class="ic"><use href="#i-case"/></svg>Valise</button>
+<button class="tab" id="t4" type="button"><svg class="ic"><use href="#i-more"/></svg>Plus</button>
 </div>
 </nav>
 
@@ -272,12 +290,13 @@ $('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(hideToast,5000);
 function hideToast(){$('toast').hidden=true}
 
 function show(n){
-$('v1').hidden=n!==1;$('v2').hidden=n!==2;
-if(n===1){$('t1').setAttribute('aria-current','page');$('t2').removeAttribute('aria-current')}
-else{$('t2').setAttribute('aria-current','page');$('t1').removeAttribute('aria-current');suggest();if(loc&&!wxLoaded){wxLoaded=true;fetchWx()}}
+for(var k=1;k<=4;k++){$('v'+k).hidden=n!==k;if(n===k)$('t'+k).setAttribute('aria-current','page');else $('t'+k).removeAttribute('aria-current')}
+if(n===2){suggest();if(loc&&!wxLoaded){wxLoaded=true;fetchWx()}}
+if(n===3&&window.renderTrip)window.renderTrip();
+if(n===4&&window.renderPlus)window.renderPlus();
 window.scrollTo(0,0);
 }
-$('t1').onclick=function(){show(1)};$('t2').onclick=function(){show(2)};
+$('t1').onclick=function(){show(1)};$('t2').onclick=function(){show(2)};$('t3').onclick=function(){show(3)};$('t4').onclick=function(){show(4)};
 
 function renderFilters(){
 if(filter==='never'&&!worn.length)filter='all';
@@ -532,6 +551,7 @@ function manualChange(){variant=0;wxManual=true;suggest()}
 $('temp').oninput=manualChange;$('rain').onchange=manualChange;
 $('res').onclick=function(e){
 if(e.target.closest('#alt')){variant++;suggest();return}
+if(e.target.closest('#fav')){if(lastOut.length&&window.addFav){toast(window.addFav(lastOut.map(function(o){return o.it.id}))?'Ajoutée aux favoris (onglet Plus)':'Déjà dans vos favoris')}return}
 if(e.target.closest('#wear')){
 if(!lastOut.length)return;
 var tg=target(),ids=lastOut.map(function(o){return o.it.id});
@@ -603,7 +623,7 @@ var te=worn.filter(function(w){return w.date===tgt.date&&(w.slot||'day')===tgt.s
 var same=!!te&&te.ids.length===out.length&&out.every(function(o){return te.ids.indexOf(o.it.id)>-1});
 var okLab=when==='tomorrow'?'Tenue de demain enregistrée':when==='evening'?'Tenue de ce soir enregistrée':'Tenue enregistrée aujourd’hui';
 var goLab=when==='tomorrow'?'Choisir cette tenue pour demain':'Je porte cette tenue';
-h+='<div class="actions" style="margin-top:14px">'+(same?'<button class="btn" id="wear" type="button" aria-disabled="true">'+okLab+'</button>':'<button class="btn pri" id="wear" type="button">'+goLab+'</button>')+(canAlt?'<button class="btn" id="alt" type="button">Autre proposition</button>':'')+'</div>';
+h+='<div class="actions" style="margin-top:14px">'+(same?'<button class="btn" id="wear" type="button" aria-disabled="true">'+okLab+'</button>':'<button class="btn pri" id="wear" type="button">'+goLab+'</button>')+(canAlt?'<button class="btn" id="alt" type="button">Autre proposition</button>':'')+'<button class="btn" id="fav" type="button">'+icon('star')+' Favori</button></div>';
 }
 res.innerHTML=h;
 }
@@ -657,5 +677,7 @@ $('tl').textContent=tlabel(15);
 if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue du jour pour charger la météo.');
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
 </script>
+<script src="valise.js"></script>
+<script src="plus.js"></script>
 </body>
 </html>
