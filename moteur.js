@@ -128,6 +128,8 @@ ctx.profile=profile();
 var by={haut:[],bas:[],ext:[],pied:[],robe:[]};
 items.forEach(function(it){if(it.type==='robe')by.robe.push(it);else by[TYPES[it.type]]&&by[TYPES[it.type]].push(it)});
 var tops=by.haut,pulls=tops.filter(function(i){return i.type==='pull'}),base=tops.filter(function(i){return i.type!=='pull'});
+var cap=function(a,n){if(a.length<=n)return a;return a.slice().sort(function(x,y){return Math.abs((x.style||1)-ctx.sT)-Math.abs((y.style||1)-ctx.sT)}).slice(0,n)};
+if(base.length*Math.max(1,by.bas.length)*(1+pulls.length)*(1+by.ext.length)*Math.max(1,by.pied.length)>30000){base=cap(base,12);by.bas=cap(by.bas,10);pulls=cap(pulls,4);by.ext=cap(by.ext,4);by.pied=cap(by.pied,5)}
 var lower=by.bas.length?by.bas:[null];
 var feet=by.pied.length?by.pied:[null];
 var outer=[null].concat(by.ext);
@@ -146,6 +148,8 @@ var r=score(parts,ctx);
 res.push({taste:r.taste,parts:parts,s:r.s,clo:r.clo,diff:r.diff,color:r.color,body:bd[0],mid:p,low:bd[1],ext:o,foot:f});
 })})});
 });
+var locks=ctx.locks?Object.keys(ctx.locks).map(function(k){return ctx.locks[k]}):[];
+if(locks.length){var f=res.filter(function(r){return locks.every(function(id){return r.parts.some(function(p){return p.id===id})})});if(f.length)res=f}
 res.sort(function(a,b){return b.s-a.s});
 /* variantes distinctes : on évite de proposer deux tenues qui ne diffèrent que d'une pièce secondaire */
 var out=[];
@@ -156,16 +160,66 @@ if(out.every(function(o){var same=o.parts.filter(function(p){return r.parts.inde
 return out;
 }
 
+
+/* Rôle d'une pièce dans une tenue : robe, haut, couche (pull porté par-dessus un haut), bas, ext, pied */
+function roleOf(it,parts){
+var c=TYPES[it.type];
+if(it.type==='pull'&&parts.some(function(p){return p!==it&&(p.type==='robe'||(TYPES[p.type]==='haut'&&p.type!=='pull'))}))return 'couche';
+return c;
+}
+function roleItems(role){
+return items.filter(function(i){var c=TYPES[i.type];
+if(role==='haut')return c==='haut'&&i.type!=='pull';
+if(role==='couche')return i.type==='pull';
+return c===role});
+}
+/* Pièces de remplacement pour un rôle, les autres pièces restant en place, de la mieux notée à la moins bien notée */
+function alternatives(ctx,parts,role){
+ctx.profile=ctx.profile||profile();
+var cur=parts.filter(function(p){return roleOf(p,parts)===role})[0];
+if(!cur)return[];
+var out=[];
+roleItems(role).forEach(function(c){
+if(c.id===cur.id)return;
+var np=parts.map(function(p){return p===cur?c:p});
+out.push({it:c,s:score(np,ctx).s});
+});
+out.sort(function(a,b){return b.s-a.s});
+return out.map(function(o){return o.it});
+}
+/* Accessoires : uniquement ceux que la personne possède, selon la météo et le programme */
+var ACC_RULES=[
+['bonnet',function(c){return c.at<=4}],
+['écharpe',function(c){return c.at<=7}],
+['gants',function(c){return c.at<=2}],
+['casquette',function(c){return c.at>=20&&!c.rain&&!c.evening}],
+['lunettes de soleil',function(c){return c.at>=16&&!c.rain&&!c.evening}],
+['ceinture',function(c,p){return !c.sport&&c.sT>=2&&p.some(function(x){return x.type==='pantalon'||x.type==='jean'})}]
+];
+var ACC_WHY={bonnet:'Il fait très froid : protège la tête.','écharpe':'Froid ou vent : garde le cou au chaud.',gants:'Mains au chaud par grand froid.',casquette:'Journée chaude et sèche : protège du soleil.','lunettes de soleil':'Journée claire et sèche.',ceinture:'Complète une tenue habillée.'};
+function accessories(parts,ctx,idx){
+var out=[];idx=idx||{};
+ctx.profile=ctx.profile||profile();
+ACC_RULES.forEach(function(r){
+if(!r[1](ctx,parts))return;
+var owned=items.filter(function(i){return i.type===r[0]});
+if(!owned.length)return;
+owned=owned.map(function(i){var all=parts.concat([i]);return{it:i,s:colorScore(all).s+tasteScore(all,ctx.profile).s}}).sort(function(a,b){return b.s-a.s}).map(function(o){return o.it});
+out.push({type:r[0],it:owned[(idx[r[0]]||0)%owned.length],count:owned.length,why:ACC_WHY[r[0]]});
+});
+return out;
+}
+
 /* Explications lisibles, pièce par pièce */
 function explain(o,ctx){
 var tot=o.clo.toFixed(2).replace('.',',');
 var need=ctx.need.toFixed(2).replace('.',',');
 var lines=[];
 lines.push('Ressenti '+Math.round(ctx.at)+' °C'+(ctx.wind>=20?' (vent '+Math.round(ctx.wind)+' km/h)':'')+' : '+need+' clo visés, tenue à '+tot+' clo.');
-if(o.diff<-0.3)lines.push('Attention : votre garde-robe ne couvre pas tout à fait ce froid (il manque environ '+Math.abs(o.diff).toFixed(1).replace('.',',')+' clo). Ajoutez écharpe, bonnet, gants ou une pièce plus chaude.');
+if(o.diff<-0.3)lines.push('Attention : votre garde-robe ne couvre pas tout à fait ce froid (il manque environ '+Math.abs(o.diff).toFixed(1).replace('.',',')+' clo). Une pièce plus chaude dans votre garde-robe aiderait.');
 if(o.taste&&o.taste.s>0.5)lines.push('Dans votre style : proche de vos favoris'+(o.taste.hit.length?' ('+o.taste.hit.map(function(i){return i.type+(i.col?' '+i.col:'')}).join(', ')+')':'')+'.');
 if(o.color.why.length)lines.push('Couleurs : '+o.color.why.join(', ')+'.');
 return lines;
 }
-window.ENGINE={clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
+window.ENGINE={roleOf:roleOf,alternatives:alternatives,accessories:accessories,clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
 })();

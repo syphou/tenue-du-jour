@@ -92,6 +92,8 @@ details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;alig
 .note{color:var(--mut);font-size:14px;margin:12px 0 0}
 nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pick .pt{flex:1;min-width:0}.pbtns{display:flex;gap:4px;align-self:center}.ib{width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--mut);display:grid;place-items:center;cursor:pointer}.ib:disabled{opacity:.35;cursor:default}.ib.on{color:var(--acc);background:var(--acc-soft)}
+.chip.more{border-style:dashed;color:var(--mut)}.chip.more .ic{width:14px;height:14px}
 .why{margin-top:12px;font-size:14px}.why summary{cursor:pointer;color:var(--acc);font-weight:600;min-height:32px}.why p{margin:6px 0}
 .taste{background:var(--acc-soft);border-radius:12px;padding:12px;margin:8px 0}.taste p{margin:4px 0}
 .chk{list-style:none;margin:0;padding:0}.chk li{border-top:1px solid var(--line)}.chk label{display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer}.chk input{width:22px;height:22px;accent-color:var(--acc)}.chk .miss{padding:10px 0;color:var(--mut);font-size:14px}
@@ -132,6 +134,9 @@ a.btn{text-decoration:none}
 <symbol id="i-case" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M4 13h16"/></symbol>
 <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
 <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4l2.4 5 5.4.7-4 3.8 1 5.4-4.8-2.6-4.8 2.6 1-5.4-4-3.8 5.4-.7z"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.5 5.8L4 15.5M4 20v-4.5h4.5"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-1.9"/></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
 </svg>
@@ -254,13 +259,14 @@ a.btn{text-decoration:none}
 </nav>
 
 <script>
-var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','robe':'robe','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
-var CAT={robe:'Robe',haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
-var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['never','Jamais portés']];
-var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée']];
+var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','robe':'robe','casquette':'acc','bonnet':'acc','écharpe':'acc','gants':'acc','lunettes de soleil':'acc','ceinture':'acc','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
+var CAT={acc:'Accessoire',robe:'Robe',haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
+var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['robe','Robes'],['acc','Accessoires'],['never','Jamais portés']];
+var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée'],['rdv','Rendez-vous','pour un rendez-vous'],['ceremonie','Cérémonie','pour une cérémonie'],['voyage','Voyage','pour un trajet ou un voyage']];
+var BASIC=5,actsMore=false;
 var WN=['','léger','moyen','chaud'];
 var KEY='garde-robe-v1',items=[],cur=null,filter='all',sel=['bureau'],lastDel=null,toastT=null,wxLoaded=false;
-var WORN_KEY='porte-v1',worn=[],variant=0,wx=null,lastOut=[],selTouched=false;
+var WORN_KEY='porte-v1',worn=[],variant=0,wx=null,lastOut=[],selTouched=false,custom=null,locks={},swapSeen={},accIdx={},lastSig='',lastCtx=null,lastCore=[];
 /* Moment choisi par défaut selon l'heure : journée avant 17 h, soirée jusqu'à 21 h, ensuite le lendemain */
 var when=(function(){var h=new Date().getHours();return h<17?'day':h<21?'evening':'tomorrow'})();
 if(when==='evening')sel=['soiree'];
@@ -371,9 +377,9 @@ im.onload=function(){var k=Math.min(1,max/Math.max(im.width,im.height)),c=docume
 im.onerror=function(){rej(new Error('image'))};im.src=u})}
 /* Reconnaissance dans le navigateur (modèle CLIP gratuit, téléchargé une seule fois) */
 var CLIP_URL='https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
-var EN={'t-shirt':'a t-shirt','chemise':'a button-up shirt','pull':'a sweater','pantalon':'a pair of trousers','jean':'a pair of jeans','short':'a pair of shorts','jupe':'a skirt','veste':'a jacket','manteau':'a winter coat','chaussures de ville':'a pair of dress shoes','baskets':'a pair of sneakers','bottes':'a pair of boots'};
-var WARM={'t-shirt':1,'short':1,'jupe':1,'chemise':2,'pantalon':2,'jean':2,'veste':2,'baskets':2,'chaussures de ville':2,'pull':3,'manteau':3,'bottes':3};
-var DRESSY={'chemise':1,'chaussures de ville':1};
+var EN={'t-shirt':'a t-shirt','chemise':'a button-up shirt','pull':'a sweater','pantalon':'a pair of trousers','jean':'a pair of jeans','short':'a pair of shorts','jupe':'a skirt','veste':'a jacket','manteau':'a winter coat','chaussures de ville':'a pair of dress shoes','baskets':'a pair of sneakers','bottes':'a pair of boots','robe':'a dress','casquette':'a baseball cap','bonnet':'a knitted beanie hat','écharpe':'a scarf','gants':'a pair of gloves','lunettes de soleil':'a pair of sunglasses','ceinture':'a belt'};
+var WARM={'t-shirt':1,'short':1,'jupe':1,'chemise':2,'pantalon':2,'jean':2,'veste':2,'baskets':2,'chaussures de ville':2,'pull':3,'manteau':3,'bottes':3,'robe':1,'casquette':1,'lunettes de soleil':1,'ceinture':2,'bonnet':3,'écharpe':3,'gants':3};
+var DRESSY={'chemise':1,'chaussures de ville':1,'ceinture':1};
 var RAINPROOF={'manteau':1,'bottes':1};
 var clipP=null;
 function loadClip(){
@@ -513,10 +519,13 @@ $('file').onchange=onPick;$('gallery').onchange=onPick;
 
 function tlabel(t){return t<8?'Froid':t<16?'Frais':t<24?'Doux':'Chaud'}
 function renderActs(){
-$('acts').innerHTML=ACTS.map(function(a){return '<button type="button" class="chip" data-a="'+a[0]+'" aria-pressed="'+(sel.indexOf(a[0])>-1)+'">'+a[1]+'</button>'}).join('');
+var extraOn=ACTS.slice(BASIC).some(function(a){return sel.indexOf(a[0])>-1});
+var shown=(actsMore||extraOn)?ACTS:ACTS.slice(0,BASIC);
+$('acts').innerHTML=shown.map(function(a){return '<button type="button" class="chip" data-a="'+a[0]+'" aria-pressed="'+(sel.indexOf(a[0])>-1)+'">'+a[1]+'</button>'}).join('')+((actsMore||extraOn)?'':'<button type="button" class="chip more" data-more="1" aria-expanded="false">'+icon('plus')+' Plus de choix</button>');
 }
 $('acts').onclick=function(e){
 var b=e.target.closest('.chip');if(!b)return;
+if(b.dataset.more){actsMore=true;renderActs();return}
 var k=b.dataset.a,i=sel.indexOf(k);
 if(i>-1){if(sel.length===1)return;sel.splice(i,1)}else sel.push(k);
 selTouched=true;variant=0;renderActs();suggest();
@@ -531,7 +540,7 @@ when=b.dataset.w;
 if(!selTouched)sel=(when==='evening')?['soiree']:['bureau'];
 variant=0;applyWhen();renderWhens();renderActs();suggest();
 };
-var STY={bureau:1.5,reunion:2,soiree:2,decontracte:1};
+var STY={bureau:1.5,reunion:2,soiree:2,decontracte:1,rdv:1.8,ceremonie:2,voyage:1};
 function joinFr(a){return a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' et '+a[a.length-1]}
 function cands(c,ctx){
 var list=[];
@@ -553,7 +562,27 @@ return list.filter(function(x){return x.s>=list[0].s-6}).slice(0,3);
 function manualChange(){variant=0;wxManual=true;wxFeel=null;suggest()}
 $('temp').oninput=manualChange;$('rain').onchange=manualChange;
 $('res').onclick=function(e){
-if(e.target.closest('#alt')){variant++;suggest();return}
+if(e.target.closest('#alt')){variant++;custom=null;swapSeen={};suggest();return}
+var sw=e.target.closest('[data-sw]');
+if(sw&&!sw.disabled){
+var role=sw.dataset.sw;
+if(role.indexOf('acc:')===0){var ty=role.slice(4);accIdx[ty]=(accIdx[ty]||0)+1;suggest();return}
+var cp=lastCore.filter(function(p){return ENGINE.roleOf(p,lastCore)===role})[0];if(!cp)return;
+var alts=ENGINE.alternatives(lastCtx,lastCore,role);if(!alts.length)return;
+var seen=swapSeen[role]||(swapSeen[role]={});seen[cp.id]=1;
+var nx=alts.filter(function(a){return !seen[a.id]})[0];
+if(!nx){swapSeen[role]=seen={};seen[cp.id]=1;nx=alts[0]}
+seen[nx.id]=1;
+custom=lastCore.map(function(p){return p===cp?nx.id:p.id});
+suggest();return;
+}
+var lk=e.target.closest('[data-lk]');
+if(lk){
+var r2=lk.dataset.lk;
+if(locks[r2])delete locks[r2];
+else{var cp2=lastCore.filter(function(p){return ENGINE.roleOf(p,lastCore)===r2})[0];if(cp2)locks[r2]=cp2.id}
+suggest();return;
+}
 if(e.target.closest('#fav')){if(lastOut.length&&window.addFav){toast(window.addFav(lastOut.map(function(o){return o.it.id}))?'Ajoutée aux favoris : vos prochaines propositions suivront votre style':'Déjà dans vos favoris')}return}
 if(e.target.closest('#wear')){
 if(!lastOut.length)return;
@@ -566,6 +595,7 @@ saveWorn();renderFilters();render();suggest();
 toast(when==='tomorrow'?'Tenue de demain enregistrée.':when==='evening'?'Tenue de ce soir enregistrée.':'Tenue enregistrée. Ces vêtements ne seront pas reproposés demain.');
 }
 };
+function roleCount(role){return items.filter(function(i){var c=TYPES[i.type];return role==='haut'?(c==='haut'&&i.type!=='pull'):role==='couche'?i.type==='pull':c===role}).length}
 function target(){return{date:when==='tomorrow'?addDays(today(),1):today(),slot:when==='evening'?'evening':'day'}}
 
 function suggest(){
@@ -583,18 +613,28 @@ var tgt=target();
 var rh=wxFeel?wxFeel.rh:null,ws=wxFeel?wxFeel.ws:null;
 var at=ENGINE.feels(t,rh,ws);
 var ectx={t:t,at:at,need:ENGINE.needClo(at,onlySport?1.8:1.4),rain:rain,wind:ws||0,sT:sT,sport:onlySport,ref:tgt.date};
+var sig=[t,rain,sT,onlySport,tgt.date,when,sel.join(',')].join('|');
+if(sig!==lastSig){custom=null;swapSeen={};accIdx={};lastSig=sig}
+Object.keys(locks).forEach(function(r){if(!items.some(function(i){return i.id===locks[r]}))delete locks[r]});
+ectx.locks=locks;ectx.evening=when==='evening';
 var props=ENGINE.propose(ectx),out=[],miss=[],canAlt=props.length>1,pick=props.length?props[variant%props.length]:null;
-if(pick){
-function role(p){var c=TYPES[p.type];return c==='haut'&&p.type==='pull'&&pick.body&&pick.body!==p?'couche':c}
-pick.parts.forEach(function(p){out.push({c:role(p),it:p})});
-var order={robe:0,haut:1,couche:2,bas:3,ext:4,pied:5};out.sort(function(x,y){return order[x.c]-order[y.c]});
-var have={};pick.parts.forEach(function(p){have[TYPES[p.type]]=1});
+var coreParts=null;
+if(custom){coreParts=custom.map(function(id){return items.filter(function(i){return i.id===id})[0]}).filter(Boolean);if(coreParts.length!==custom.length)custom=null}
+if(!custom&&pick)coreParts=pick.parts;
+if(coreParts){
+var order={robe:0,haut:1,couche:2,bas:3,ext:4,pied:5,acc:6};
+coreParts.forEach(function(p){var r=ENGINE.roleOf(p,coreParts);out.push({c:r,role:r,it:p})});
+out.sort(function(x,y){return order[x.c]-order[y.c]});
+var have={};coreParts.forEach(function(p){have[TYPES[p.type]]=1});
 if(!have.haut&&!have.robe)miss.push('haut');
 if(!have.bas&&!have.robe)miss.push('bas');
 if(!have.pied)miss.push('chaussures');
 if(t<16&&!have.ext&&!items.some(function(i){return TYPES[i.type]==='ext'}))miss.push('veste ou manteau');
+ENGINE.accessories(coreParts,ectx,accIdx).forEach(function(a){out.push({c:'acc',role:'acc:'+a.type,it:a.it,why:a.why,count:a.count})});
 }
-var expl=pick?ENGINE.explain(pick,ectx):[];
+lastCtx=ectx;lastCore=coreParts||[];
+var scored=coreParts?ENGINE.score(coreParts,ectx):null;
+var expl=pick?ENGINE.explain(custom&&scored?{clo:scored.clo,diff:scored.diff,color:scored.color,taste:scored.taste,parts:coreParts}:pick,ectx):[];
 lastOut=out;
 var kit=[];
 if(hasSport&&!onlySport){
@@ -605,8 +645,10 @@ var labs=ACTS.filter(function(a){return sel.indexOf(a[0])>-1}).map(function(a){r
 var wl=WHENS.filter(function(w){return w[0]===when})[0][2];
 var h='<h2>Pour '+wl+', '+t+' °C, '+joinFr(labs)+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
 out.forEach(function(o){
-var why=o.c==='ext'?(rain&&o.it.rain?'Pluie : pièce résistante.':at<8?'Il fait froid : couche extérieure chaude.':'Couche extérieure contre la fraîcheur et le vent.'):o.c==='couche'?'Couche chaude sous la veste, facile à retirer.':o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&(o.it.rain||o.it.type==='bottes')?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='robe'?'Une pièce, déjà assortie.':o.c==='haut'?'Isolation adaptée à '+Math.round(at)+' ° ressentis.':'Assorti au haut et à votre programme.';
-h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div></div>';
+var why=o.c==='ext'?(rain&&o.it.rain?'Pluie : pièce résistante.':at<8?'Il fait froid : couche extérieure chaude.':'Couche extérieure contre la fraîcheur et le vent.'):o.c==='couche'?'Couche chaude sous la veste, facile à retirer.':o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&(o.it.rain||o.it.type==='bottes')?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='acc'?o.why:o.c==='robe'?'Une pièce, déjà assortie.':o.c==='haut'?'Isolation adaptée à '+Math.round(at)+' ° ressentis.':'Assorti au haut et à votre programme.';
+var isAcc=o.c==='acc',locked=!isAcc&&locks[o.role]===o.it.id,nAlt=isAcc?o.count:roleCount(o.role);
+var btns='<div class="pbtns">'+(nAlt>1?'<button type="button" class="ib" data-sw="'+o.role+'" aria-label="Changer cette pièce"'+(locked?' disabled':'')+'>'+icon('swap')+'</button>':'')+(isAcc?'':'<button type="button" class="ib'+(locked?' on':'')+'" data-lk="'+o.role+'" aria-pressed="'+locked+'" aria-label="'+(locked?'Déverrouiller':'Garder')+' cette pièce">'+icon(locked?'lock':'unlock')+'</button>')+'</div>';
+h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div class="pt"><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div>'+btns+'</div>';
 });
 h+='</div>';
 if(expl.length)h+='<details class="why"><summary>Pourquoi cette tenue ?</summary><p>'+expl.map(esc).join('</p><p>')+'</p><p class="note">Isolation en clo (ASHRAE 55), température ressentie (Steadman, Bureau of Meteorology), règles de couleurs classiques.</p></details>';
