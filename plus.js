@@ -13,13 +13,17 @@ var nw=items.filter(function(i){return !everWorn(i.id)}).length;
 h+='<p class="note" style="margin-top:6px">'+(worn.length?nw+' jamais porté'+(nw>1?'s':'')+' · '+worn.length+' tenue'+(worn.length>1?'s':'')+' enregistrée'+(worn.length>1?'s':'')+'.':'Enregistrez vos tenues portées pour suivre ce que vous mettez vraiment.')+'</p>';
 return h;
 }
+function styleText(){
+var m=window.ENGINE&&ENGINE.summary();if(!m)return '';
+return '<div class="taste"><b>Votre style</b><p>D’après '+m.n+' favori'+(m.n>1?'s':'')+(m.cols.length?', vous aimez : '+esc(m.cols.join(', ')):'')+(m.types.length?'. Pièces préférées : '+esc(m.types.join(', ')):'')+(m.pair?'. Association récurrente : '+esc(m.pair.replace('+',' et ')):'')+'.</p><p class="note">Vos propositions s’en rapprochent, sans jamais sacrifier le confort face à la météo.</p></div>';
+}
 function favList(){
 var rows=favs.map(function(f,k){
 var n=f.ids.map(name).filter(Boolean);
 if(!n.length)return '';
 return '<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)"><span>'+esc(n.join(', '))+'</span><button type="button" class="btn" data-fd="'+k+'" aria-label="Retirer des favoris">Retirer</button></li>';
 }).join('');
-return rows?'<ul style="list-style:none;margin:0;padding:0">'+rows+'</ul>':'<p class="note">Aucune pour l’instant. Touchez « Mettre en favori » sous une proposition de l’onglet Tenue.</p>';
+return rows?styleText()+'<ul style="list-style:none;margin:0;padding:0">'+rows+'</ul>':'<p class="note">Aucune pour l’instant. Touchez « Mettre en favori » sous une proposition de l’onglet Tenue.</p>';
 }
 window.addFav=function(ids){
 var key=ids.slice().sort().join(',');

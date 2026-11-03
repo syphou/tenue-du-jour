@@ -57,6 +57,42 @@ if(names['bleu marine']&&names['noir']){s-=1.5;why.push('marine et noir : contra
 return{s:s,why:why};
 }
 
+
+/* --- goût de la personne, appris de ses tenues favorites ---
+   Chaque favori compte : pièces, couleurs et associations de couleurs reviennent un peu plus souvent.
+   Le bonus est plafonné pour ne jamais l'emporter sur le confort thermique (un manque de 0,5 clo vaut déjà -6). */
+function favsList(){try{var f=JSON.parse(localStorage.getItem('favoris-v1')||'[]');return Array.isArray(f)?f:[]}catch(e){return[]}}
+function colKey(it){var c=colInfo(it.col);return c.k}
+function pairKeys(parts){var ks=parts.map(colKey).filter(function(k){return k!=='?'});var u=ks.filter(function(k,i){return ks.indexOf(k)===i}).sort(),out=[];for(var i=0;i<u.length;i++)for(var j=i+1;j<u.length;j++)out.push(u[i]+'+'+u[j]);return out}
+function profile(){
+var P={n:0,item:{},col:{},pair:{},type:{}};
+favsList().forEach(function(f){
+var parts=(f.ids||[]).map(function(id){return items.filter(function(i){return i.id===id})[0]}).filter(Boolean);
+if(!parts.length)return;P.n++;
+parts.forEach(function(it){P.item[it.id]=(P.item[it.id]||0)+1;var k=colKey(it);if(k!=='?')P.col[k]=(P.col[k]||0)+1;P.type[it.type]=(P.type[it.type]||0)+1});
+pairKeys(parts).forEach(function(k){P.pair[k]=(P.pair[k]||0)+1});
+});
+return P;
+}
+function tasteScore(parts,P){
+if(!P||!P.n)return{s:0,hit:[]};
+var s=0,hit=[];
+parts.forEach(function(it){
+var n=P.item[it.id]||0;if(n){s+=Math.min(1.2,0.6*n);hit.push(it)}
+var c=P.col[colKey(it)]||0;if(c)s+=Math.min(0.8,0.3*c);
+});
+var pk=pairKeys(parts),pm=0;pk.forEach(function(k){if(P.pair[k])pm+=Math.min(1,0.5*P.pair[k])});
+s+=Math.min(1.5,pm);
+return{s:Math.min(5,s),hit:hit};
+}
+function summary(){
+var P=profile();if(!P.n)return null;
+function top(o,k){return Object.keys(o).sort(function(a,b){return o[b]-o[a]}).slice(0,k)}
+var cols=top(P.col,3).filter(function(c){return c!=='?'}),types=top(P.type,3);
+var pr=top(P.pair,1);
+return{n:P.n,cols:cols,types:types,pair:pr[0]||null};
+}
+
 /* --- notation d'une tenue --- */
 function score(parts,ctx){
 var tot=BASE,why=[],s=0,i;
@@ -79,14 +115,16 @@ if(!ctx.sport&&ctx.sT>=2&&shoes&&shoes.type==='baskets')s-=1.5;
 parts.forEach(function(it){if(it.type==='short'&&ctx.at<22&&!ctx.sport)s-=8;if(it.type==='manteau'&&ctx.at>15)s-=6;if(it.type==='pull'&&ctx.at>24)s-=6});
 /* Couleurs */
 var cs=colorScore(parts);s+=cs.s;
+var P=ctx.profile;var ts=tasteScore(parts,P);var ad=Math.abs(diff),tf=ad<=0.3?1:Math.max(0,1-(ad-0.3)/0.5);ts.s*=tf;s+=ts.s;
 /* Rotation : ne pas répéter ce qui a été porté hier ou avant-hier */
 parts.forEach(function(it){var dw=window.lastWornDays?lastWornDays(it.id,ctx.ref):null;if(dw===1)s-=5;else if(dw===2)s-=2;});
-return{s:s,clo:tot,diff:diff,color:cs};
+return{s:s,clo:tot,diff:diff,color:cs,taste:ts};
 }
 
 /* Combinaisons : (robe) OU (haut + bas), + couche(s) d'extérieur éventuelle, + chaussures.
    Une seule couche légère (pull/veste) est ajoutée si besoin : jusqu'à 3 couches au total pour le haut. */
 function propose(ctx){
+ctx.profile=profile();
 var by={haut:[],bas:[],ext:[],pied:[],robe:[]};
 items.forEach(function(it){if(it.type==='robe')by.robe.push(it);else by[TYPES[it.type]]&&by[TYPES[it.type]].push(it)});
 var tops=by.haut,pulls=tops.filter(function(i){return i.type==='pull'}),base=tops.filter(function(i){return i.type!=='pull'});
@@ -105,7 +143,7 @@ mid.forEach(function(p){outer.forEach(function(o){feet.forEach(function(f){
 var parts=[bd[0],p,bd[1],o,f].filter(Boolean);
 if(!parts.length)return;
 var r=score(parts,ctx);
-res.push({parts:parts,s:r.s,clo:r.clo,diff:r.diff,color:r.color,body:bd[0],mid:p,low:bd[1],ext:o,foot:f});
+res.push({taste:r.taste,parts:parts,s:r.s,clo:r.clo,diff:r.diff,color:r.color,body:bd[0],mid:p,low:bd[1],ext:o,foot:f});
 })})});
 });
 res.sort(function(a,b){return b.s-a.s});
@@ -125,8 +163,9 @@ var need=ctx.need.toFixed(2).replace('.',',');
 var lines=[];
 lines.push('Ressenti '+Math.round(ctx.at)+' °C'+(ctx.wind>=20?' (vent '+Math.round(ctx.wind)+' km/h)':'')+' : '+need+' clo visés, tenue à '+tot+' clo.');
 if(o.diff<-0.3)lines.push('Attention : votre garde-robe ne couvre pas tout à fait ce froid (il manque environ '+Math.abs(o.diff).toFixed(1).replace('.',',')+' clo). Ajoutez écharpe, bonnet, gants ou une pièce plus chaude.');
+if(o.taste&&o.taste.s>0.5)lines.push('Dans votre style : proche de vos favoris'+(o.taste.hit.length?' ('+o.taste.hit.map(function(i){return i.type+(i.col?' '+i.col:'')}).join(', ')+')':'')+'.');
 if(o.color.why.length)lines.push('Couleurs : '+o.color.why.join(', ')+'.');
 return lines;
 }
-window.ENGINE={clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score};
+window.ENGINE={clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
 })();
