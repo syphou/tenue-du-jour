@@ -109,6 +109,8 @@ nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr
 .wx form input{flex:1;min-width:0}
 .wx form .btn{flex:none}
 .dl{font-size:13px;color:var(--mut);margin:8px 0 0}
+.tip{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:var(--acc-soft);font-size:14px}
+a.btn{text-decoration:none}
 </style>
 </head>
 <body>
@@ -155,6 +157,16 @@ nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr
 <div class="head"><h2 id="count">Mes vêtements</h2><small id="count2"></small></div>
 <div class="chips" id="filters" role="group" aria-label="Filtrer par catégorie"></div>
 <div class="grid" id="list"></div>
+<div class="card" style="margin-top:16px">
+<h2>Sauvegarde</h2>
+<p class="note" style="margin-top:6px">Votre garde-robe reste sur cet appareil. Exportez-la dans un fichier pour la conserver ou la déplacer.</p>
+<div class="actions" style="margin-top:12px">
+<button class="btn" id="exp" type="button">Exporter</button>
+<input type="file" id="imp" accept=".json,application/json" class="vh">
+<label for="imp" class="btn">Importer</label>
+</div>
+<p id="bk-msg" class="dl" aria-live="polite"></p>
+</div>
 </section>
 
 <section id="v2" hidden aria-labelledby="h-day">
@@ -195,10 +207,12 @@ nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr
 <li>24 °C et plus : tenue légère, short possible.</li>
 <li>Pluie : vêtements résistants à la pluie en priorité.</li>
 <li>Réunion ou soirée : style habillé. Sport : baskets.</li>
+<li>Un vêtement porté hier est évité, celui porté avant-hier un peu moins.</li>
 </ul>
 </details>
 </div>
 </section>
+<p id="fb" hidden style="text-align:center;margin:8px 0 0"><a class="btn" id="fb-a" href="#" target="_blank" rel="noopener">Donner mon avis</a></p>
 </main>
 
 <div id="toast" role="status" hidden><span id="toast-t"></span><button type="button" id="toast-b" hidden></button></div>
@@ -213,12 +227,22 @@ nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr
 <script>
 var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
 var CAT={haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
-var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures']];
+var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['never','Jamais portés']];
 var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée']];
 var WN=['','léger','moyen','chaud'];
 var KEY='garde-robe-v1',items=[],cur=null,filter='all',act='bureau',lastDel=null,toastT=null,wxLoaded=false;
+var WORN_KEY='porte-v1',worn=[],variant=0,wx=null,lastOut=[];
+/* Lien du formulaire d'avis pour les testeurs : à renseigner (ex. un Google Forms). Vide = bouton masqué. */
+var FEEDBACK_URL='';
 var $=function(i){return document.getElementById(i)};
 try{items=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){items=[]}
+if(!Array.isArray(items))items=[];
+try{worn=JSON.parse(localStorage.getItem(WORN_KEY)||'[]')}catch(e){worn=[]}
+if(!Array.isArray(worn))worn=[];
+function saveWorn(){try{localStorage.setItem(WORN_KEY,JSON.stringify(worn))}catch(e){}}
+function today(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function daysBetween(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)}
+function lastWornDays(id){var best=null;worn.forEach(function(w){if(w.ids&&w.ids.indexOf(id)>-1){var d=daysBetween(w.date,today());if(d>=0&&(best===null||d<best))best=d}});return best}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){$('msg').textContent='Espace de stockage plein : supprimez quelques vêtements.'}}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function icon(n){return '<svg class="ic"><use href="#i-'+n+'"/></svg>'}
@@ -242,13 +266,14 @@ window.scrollTo(0,0);
 $('t1').onclick=function(){show(1)};$('t2').onclick=function(){show(2)};
 
 function renderFilters(){
-$('filters').innerHTML=FILT.map(function(f){return '<button type="button" class="chip" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>'}).join('');
+if(filter==='never'&&!worn.length)filter='all';
+$('filters').innerHTML=FILT.filter(function(f){return f[0]!=='never'||worn.length}).map(function(f){return '<button type="button" class="chip" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>'}).join('');
 }
 $('filters').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;filter=b.dataset.f;renderFilters();render()};
 
 function render(){
 $('count').textContent='Mes vêtements';
-var list=items.filter(function(i){return filter==='all'||TYPES[i.type]===filter});
+var list=items.filter(function(i){return filter==='all'||(filter==='never'?lastWornDays(i.id)===null:TYPES[i.type]===filter)});
 $('count2').textContent=items.length?(items.length+(items.length>1?' pièces':' pièce')):'';
 $('filters').hidden=!items.length;
 if(!items.length){$('list').innerHTML='<div class="empty">'+icon('hanger')+'<p>Votre garde-robe est vide. Prenez une première photo pour commencer.</p></div>';return}
@@ -257,7 +282,7 @@ $('list').innerHTML=list.map(function(it){
 return '<div class="it">'+(it.img?'<img src="'+it.img+'" alt="'+esc(it.type)+'">':'<div class="ph"></div>')+
 '<button class="edit" type="button" data-id="'+it.id+'" aria-label="Modifier : '+esc(it.type)+'">'+icon('pen')+'</button>'+
 '<button class="del" type="button" data-id="'+it.id+'" aria-label="Supprimer : '+esc(it.type)+'">'+icon('x')+'</button>'+
-'<div class="t"><b>'+esc(it.type)+'</b><span class="c">'+esc(it.col||'couleur non précisée')+'</span><div class="tags"><span class="tag">'+WN[it.warm]+'</span>'+(it.style==2?'<span class="tag">habillé</span>':'')+(it.rain?'<span class="tag">pluie</span>':'')+'</div></div></div>'}).join('');
+'<div class="t"><b>'+esc(it.type)+'</b><span class="c">'+esc(it.col||'couleur non précisée')+'</span><div class="tags"><span class="tag">'+WN[it.warm]+'</span>'+(it.style==2?'<span class="tag">habillé</span>':'')+(it.rain?'<span class="tag">pluie</span>':'')+(worn.length&&lastWornDays(it.id)===null?'<span class="tag">jamais porté</span>':'')+'</div></div></div>'}).join('');
 }
 $('list').onclick=function(e){
 var ed=e.target.closest('.edit');
@@ -377,19 +402,22 @@ var LOC_KEY='lieu-v1',loc=null,wxManual=false;
 try{loc=JSON.parse(localStorage.getItem(LOC_KEY)||'null')}catch(e){loc=null}
 function saveLoc(){try{localStorage.setItem(LOC_KEY,JSON.stringify(loc))}catch(e){}}
 function wxStatus(src,sub){$('wx-src').textContent=src;$('wx-sub').textContent=sub}
+function hourT(j,hh){var tm=j.hourly&&j.hourly.time,tp=j.hourly&&j.hourly.temperature_2m;if(!tm||!tp)return null;var i=tm.findIndex(function(x){return String(x).slice(11,13)===hh});return i>-1&&tp[i]!=null?Math.round(tp[i]):null}
 async function fetchWx(){
 if(!loc)return;
 wxStatus('Chargement de la météo…','');
 try{
-var u='https://api.open-meteo.com/v1/forecast?latitude='+loc.lat+'&longitude='+loc.lon+'&current=temperature_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto';
+var u='https://api.open-meteo.com/v1/forecast?latitude='+loc.lat+'&longitude='+loc.lon+'&current=temperature_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m&forecast_days=1&timezone=auto';
 var r=await fetch(u);if(!r.ok)throw new Error('http');
 var j=await r.json();
+wx={mor:hourT(j,'08'),aft:hourT(j,'14'),eve:hourT(j,'20')};
 var t=Math.round(j.current.temperature_2m),mn=Math.round(j.daily.temperature_2m_min[0]),mx=Math.round(j.daily.temperature_2m_max[0]),pp=j.daily.precipitation_probability_max[0];
 var rain=(j.current.precipitation>0)||(pp>=50);
 $('temp').value=Math.max(-10,Math.min(40,t));
-$('rain').checked=rain;wxManual=false;
+$('rain').checked=rain;wxManual=false;variant=0;
 var h=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-wxStatus(loc.name+' : '+t+' °C'+(rain?', pluie probable':''),'Aujourd’hui de '+mn+' à '+mx+' °C, pluie '+(pp==null?'?':pp)+' %. Mis à jour à '+h+'.');
+var detail=(wx.mor!=null&&wx.aft!=null&&wx.eve!=null)?'Matin '+wx.mor+' °C, après-midi '+wx.aft+' °C, soir '+wx.eve+' °C. ':'Aujourd’hui de '+mn+' à '+mx+' °C. ';
+wxStatus(loc.name+' : '+t+' °C'+(rain?', pluie probable':''),detail+'Pluie '+(pp==null?'?':pp)+' %. Mis à jour à '+h+'.');
 $('wx-refresh').hidden=false;
 suggest();
 }catch(e){wxStatus('Météo indisponible','Vérifiez votre connexion, puis appuyez sur Actualiser. Vous pouvez régler la température à la main.');$('wx-refresh').hidden=false}
@@ -420,8 +448,22 @@ function tlabel(t){return t<8?'Froid':t<16?'Frais':t<24?'Doux':'Chaud'}
 function renderActs(){
 $('acts').innerHTML=ACTS.map(function(a){return '<button type="button" class="chip" data-a="'+a[0]+'" aria-pressed="'+(act===a[0])+'">'+a[1]+'</button>'}).join('');
 }
-$('acts').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;act=b.dataset.a;renderActs();suggest()};
-$('temp').oninput=suggest;$('rain').onchange=suggest;
+$('acts').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;act=b.dataset.a;variant=0;renderActs();suggest()};
+function manualChange(){variant=0;wxManual=true;suggest()}
+$('temp').oninput=manualChange;$('rain').onchange=manualChange;
+$('res').onclick=function(e){
+if(e.target.closest('#alt')){variant++;suggest();return}
+if(e.target.closest('#wear')){
+if(!lastOut.length)return;
+var d=today(),ids=lastOut.map(function(o){return o.it.id});
+worn=worn.filter(function(w){return w.date!==d});
+worn.push({date:d,ids:ids});
+worn.sort(function(a,b){return a.date<b.date?-1:1});
+if(worn.length>400)worn=worn.slice(-400);
+saveWorn();renderFilters();render();suggest();
+toast('Tenue enregistrée. Ces vêtements ne seront pas reproposés demain.');
+}
+};
 
 function suggest(){
 var t=parseFloat($('temp').value);if(isNaN(t))t=15;
@@ -433,10 +475,10 @@ var sT={bureau:1.5,reunion:2,soiree:2,sport:1,decontracte:1}[act];
 var wT=t>=24?1:t>=16?1.5:t>=8?2.5:3;
 var eT=t<8?3:2;
 var needExt=t<16||(rain&&items.some(function(i){return TYPES[i.type]==='ext'&&i.rain}));
-var out=[],miss=[];
+var out=[],miss=[],canAlt=false;
 ['haut','bas','ext','pied'].forEach(function(c){
 if(c==='ext'&&!needExt)return;
-var best=null,bs=-1e9;
+var cands=[];
 items.forEach(function(it){
 if(TYPES[it.type]!==c)return;
 var s=-Math.abs(it.warm-(c==='ext'?eT:wT))*(c==='bas'||c==='pied'?0.5:2)-Math.abs(it.style-sT)*(act==='sport'?0.3:2);
@@ -444,10 +486,17 @@ if(rain&&it.rain)s+=2;
 if(act==='sport'&&it.type==='baskets')s+=4;
 if(it.type==='short'&&t<22)s-=10;
 if(it.type==='bottes'&&!rain&&t>=16)s-=3;
-if(s>bs){bs=s;best=it}
+var dw=lastWornDays(it.id);
+if(dw===1)s-=5;else if(dw===2)s-=2;
+cands.push({it:it,s:s});
 });
-if(best)out.push({c:c,it:best});else miss.push(CAT[c].toLowerCase());
+if(!cands.length){miss.push(CAT[c].toLowerCase());return}
+cands.sort(function(a,b){return b.s-a.s});
+cands=cands.filter(function(x){return x.s>=cands[0].s-6}).slice(0,3);
+if(cands.length>1)canAlt=true;
+out.push({c:c,it:cands[variant%cands.length].it});
 });
+lastOut=out;
 var lab=ACTS.filter(function(a){return a[0]===act})[0][2];
 var h='<h2>Pour '+t+' °C, '+lab+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
 out.forEach(function(o){
@@ -457,8 +506,62 @@ h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class=
 h+='</div>';
 if(!out.length)h+='<p class="note">Aucun vêtement utilisable pour cette journée. Ajoutez-en dans la garde-robe.</p>';
 if(miss.length&&out.length)h+='<p class="miss">Il vous manque : '+miss.join(', ')+'.</p>';
+if(wx&&!wxManual){
+var hasExt=out.some(function(o){return o.c==='ext'});
+if(wx.eve!=null&&wx.eve<=t-5)h+='<p class="tip">Il fera '+wx.eve+' °C à 20 h : '+(hasExt?'gardez votre veste pour ce soir.':'emportez une veste pour ce soir.')+'</p>';
+else if(wx.aft!=null&&wx.aft>=t+6)h+='<p class="tip">Il fera '+wx.aft+' °C cet après-midi : prévoyez une couche facile à retirer.</p>';
+}
+if(out.length){
+var te=worn.filter(function(w){return w.date===today()})[0];
+var same=!!te&&te.ids.length===out.length&&out.every(function(o){return te.ids.indexOf(o.it.id)>-1});
+h+='<div class="actions" style="margin-top:14px">'+(same?'<button class="btn" id="wear" type="button" aria-disabled="true">Tenue enregistrée aujourd’hui</button>':'<button class="btn pri" id="wear" type="button">Je porte cette tenue</button>')+(canAlt?'<button class="btn" id="alt" type="button">Autre proposition</button>':'')+'</div>';
+}
 res.innerHTML=h;
 }
+/* Sauvegarde : export / import (les fichiers importés sont vérifiés et fusionnés, jamais écrasés) */
+var IMG_OK=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
+function cleanItem(x){
+if(!x||typeof x!=='object')return null;
+var id=Number(x.id);if(!isFinite(id)||!TYPES[x.type])return null;
+var warm=Math.round(Number(x.warm)),style=Math.round(Number(x.style));
+return{id:id,img:(typeof x.img==='string'&&x.img.length<400000&&IMG_OK.test(x.img))?x.img:null,type:x.type,col:typeof x.col==='string'?x.col.slice(0,40):'',warm:[1,2,3].indexOf(warm)>-1?warm:2,style:style===2?2:1,rain:!!x.rain};
+}
+async function exportData(){
+var name='garde-robe-'+today()+'.json';
+var blob=new Blob([JSON.stringify({app:'tenue-du-jour',version:1,exportedAt:new Date().toISOString(),items:items,worn:worn})],{type:'application/json'});
+try{
+var file=new File([blob],name,{type:'application/json'});
+if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Ma garde-robe'});$('bk-msg').textContent='Sauvegarde partagée.';return}
+}catch(e){if(e&&e.name==='AbortError')return}
+var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+setTimeout(function(){URL.revokeObjectURL(a.href)},3000);
+$('bk-msg').textContent='Fichier '+name+' enregistré dans vos téléchargements.';
+}
+$('exp').onclick=exportData;
+$('imp').onchange=function(e){
+var f=e.target.files&&e.target.files[0];if(!f)return;
+var rd=new FileReader();
+rd.onload=function(){
+try{
+var d=JSON.parse(rd.result);
+if(!d||!Array.isArray(d.items))throw new Error('format');
+var have={};items.forEach(function(i){have[i.id]=1});
+var added=0,skipped=0;
+d.items.forEach(function(x){var v=cleanItem(x);if(!v||have[v.id]){skipped++;return}have[v.id]=1;items.push(v);added++});
+if(Array.isArray(d.worn))d.worn.forEach(function(w){
+if(!w||typeof w.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(w.date)||!Array.isArray(w.ids))return;
+var ids=w.ids.map(Number).filter(isFinite);
+var ex=worn.filter(function(k){return k.date===w.date})[0];
+if(ex){ids.forEach(function(i){if(ex.ids.indexOf(i)<0)ex.ids.push(i)})}else worn.push({date:w.date,ids:ids});
+});
+worn.sort(function(a,b){return a.date<b.date?-1:1});
+save();saveWorn();renderFilters();render();
+$('bk-msg').textContent=added+(added>1?' vêtements ajoutés':' vêtement ajouté')+(skipped?', '+skipped+' ignoré'+(skipped>1?'s':'')+' (déjà présents ou non valides).':'.');
+}catch(err){$('bk-msg').textContent='Fichier non reconnu. Choisissez un fichier exporté depuis Tenue du jour.'}
+};
+rd.readAsText(f);e.target.value='';
+};
+if(FEEDBACK_URL){$('fb-a').href=FEEDBACK_URL;$('fb').hidden=false}
 renderFilters();renderActs();render();
 $('tl').textContent=tlabel(15);
 if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue du jour pour charger la météo.');
