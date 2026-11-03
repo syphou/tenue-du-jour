@@ -109,6 +109,8 @@ nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr
 .wx form input{flex:1;min-width:0}
 .wx form .btn{flex:none}
 .dl{font-size:13px;color:var(--mut);margin:8px 0 0}
+.kit{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.kit h3{font-size:17px;margin:0 0 2px}
 .tip{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:var(--acc-soft);font-size:14px}
 a.btn{text-decoration:none}
 </style>
@@ -190,7 +192,7 @@ a.btn{text-decoration:none}
 <div class="scale"><span>-10</span><span>5</span><span>15</span><span>25</span><span>40</span></div>
 </div>
 <div class="sec">
-<span class="lab">Au programme</span>
+<span class="lab">Au programme (plusieurs choix possibles)</span>
 <div class="acts" id="acts" role="group" aria-label="Programme du jour"></div>
 </div>
 <label class="sw"><input type="checkbox" id="rain" role="switch"><span>Il pleut</span></label>
@@ -208,6 +210,7 @@ a.btn{text-decoration:none}
 <li>Pluie : vêtements résistants à la pluie en priorité.</li>
 <li>Réunion ou soirée : style habillé. Sport : baskets.</li>
 <li>Un vêtement porté hier est évité, celui porté avant-hier un peu moins.</li>
+<li>Plusieurs programmes : la tenue suit le plus habillé, et le sport s’ajoute dans une liste à emporter.</li>
 </ul>
 </details>
 </div>
@@ -230,7 +233,7 @@ var CAT={haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
 var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['never','Jamais portés']];
 var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée']];
 var WN=['','léger','moyen','chaud'];
-var KEY='garde-robe-v1',items=[],cur=null,filter='all',act='bureau',lastDel=null,toastT=null,wxLoaded=false;
+var KEY='garde-robe-v1',items=[],cur=null,filter='all',sel=['bureau'],lastDel=null,toastT=null,wxLoaded=false;
 var WORN_KEY='porte-v1',worn=[],variant=0,wx=null,lastOut=[];
 /* Lien du formulaire d'avis pour les testeurs : à renseigner (ex. un Google Forms). Vide = bouton masqué. */
 var FEEDBACK_URL='';
@@ -446,9 +449,33 @@ $('file').onchange=onPick;$('gallery').onchange=onPick;
 
 function tlabel(t){return t<8?'Froid':t<16?'Frais':t<24?'Doux':'Chaud'}
 function renderActs(){
-$('acts').innerHTML=ACTS.map(function(a){return '<button type="button" class="chip" data-a="'+a[0]+'" aria-pressed="'+(act===a[0])+'">'+a[1]+'</button>'}).join('');
+$('acts').innerHTML=ACTS.map(function(a){return '<button type="button" class="chip" data-a="'+a[0]+'" aria-pressed="'+(sel.indexOf(a[0])>-1)+'">'+a[1]+'</button>'}).join('');
 }
-$('acts').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;act=b.dataset.a;variant=0;renderActs();suggest()};
+$('acts').onclick=function(e){
+var b=e.target.closest('.chip');if(!b)return;
+var k=b.dataset.a,i=sel.indexOf(k);
+if(i>-1){if(sel.length===1)return;sel.splice(i,1)}else sel.push(k);
+variant=0;renderActs();suggest();
+};
+var STY={bureau:1.5,reunion:2,soiree:2,decontracte:1};
+function joinFr(a){return a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' et '+a[a.length-1]}
+function cands(c,ctx){
+var list=[];
+items.forEach(function(it){
+if(TYPES[it.type]!==c)return;
+var s=-Math.abs(it.warm-(c==='ext'?ctx.eT:ctx.wT))*(c==='bas'||c==='pied'?0.5:2)-Math.abs(it.style-ctx.sT)*(ctx.sport?0.3:2);
+if(ctx.rain&&it.rain)s+=2;
+if(ctx.sport&&it.type==='baskets')s+=4;
+if(it.type==='short'&&ctx.t<22)s-=10;
+if(it.type==='bottes'&&!ctx.rain&&ctx.t>=16)s-=3;
+var dw=lastWornDays(it.id);
+if(dw===1)s-=5;else if(dw===2)s-=2;
+list.push({it:it,s:s});
+});
+if(!list.length)return list;
+list.sort(function(a,b){return b.s-a.s});
+return list.filter(function(x){return x.s>=list[0].s-6}).slice(0,3);
+}
 function manualChange(){variant=0;wxManual=true;suggest()}
 $('temp').oninput=manualChange;$('rain').onchange=manualChange;
 $('res').onclick=function(e){
@@ -471,39 +498,42 @@ var rain=$('rain').checked;
 $('tv').textContent=t+' °C';$('tl').textContent=tlabel(t);
 var res=$('res');
 if(!items.length){res.innerHTML='<div class="empty" style="border:0;padding:12px">'+icon('shirt')+'<p>Ajoutez quelques vêtements pour recevoir une proposition.</p><button class="btn pri" type="button" id="go-add">Ajouter un vêtement</button></div>';$('go-add').onclick=function(){show(1)};return}
-var sT={bureau:1.5,reunion:2,soiree:2,sport:1,decontracte:1}[act];
+var base=sel.filter(function(a){return a!=='sport'});
+var hasSport=sel.indexOf('sport')>-1,onlySport=!base.length;
+var sT=onlySport?1:Math.max.apply(null,base.map(function(a){return STY[a]}));
 var wT=t>=24?1:t>=16?1.5:t>=8?2.5:3;
 var eT=t<8?3:2;
 var needExt=t<16||(rain&&items.some(function(i){return TYPES[i.type]==='ext'&&i.rain}));
+var ctx={t:t,rain:rain,wT:wT,eT:eT,sT:sT,sport:onlySport};
 var out=[],miss=[],canAlt=false;
 ['haut','bas','ext','pied'].forEach(function(c){
 if(c==='ext'&&!needExt)return;
-var cands=[];
-items.forEach(function(it){
-if(TYPES[it.type]!==c)return;
-var s=-Math.abs(it.warm-(c==='ext'?eT:wT))*(c==='bas'||c==='pied'?0.5:2)-Math.abs(it.style-sT)*(act==='sport'?0.3:2);
-if(rain&&it.rain)s+=2;
-if(act==='sport'&&it.type==='baskets')s+=4;
-if(it.type==='short'&&t<22)s-=10;
-if(it.type==='bottes'&&!rain&&t>=16)s-=3;
-var dw=lastWornDays(it.id);
-if(dw===1)s-=5;else if(dw===2)s-=2;
-cands.push({it:it,s:s});
-});
-if(!cands.length){miss.push(CAT[c].toLowerCase());return}
-cands.sort(function(a,b){return b.s-a.s});
-cands=cands.filter(function(x){return x.s>=cands[0].s-6}).slice(0,3);
-if(cands.length>1)canAlt=true;
-out.push({c:c,it:cands[variant%cands.length].it});
+var cs=cands(c,ctx);
+if(!cs.length){miss.push(CAT[c].toLowerCase());return}
+if(cs.length>1)canAlt=true;
+out.push({c:c,it:cs[variant%cs.length].it});
 });
 lastOut=out;
-var lab=ACTS.filter(function(a){return a[0]===act})[0][2];
-var h='<h2>Pour '+t+' °C, '+lab+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
+var kit=[];
+if(hasSport&&!onlySport){
+var kctx={t:t,rain:rain,wT:Math.max(1,wT-1),eT:eT,sT:1,sport:true};
+['haut','bas','pied'].forEach(function(c){var ks=cands(c,kctx);if(ks.length){if(ks.length>1)canAlt=true;kit.push({c:c,it:ks[variant%ks.length].it})}});
+}
+var labs=ACTS.filter(function(a){return sel.indexOf(a[0])>-1}).map(function(a){return a[2]});
+var h='<h2>Pour '+t+' °C, '+joinFr(labs)+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
 out.forEach(function(o){
-var why=o.c==='ext'?(t<8?'Il fait froid : la pièce la plus chaude disponible.':rain&&o.it.rain?'Pluie : pièce résistante choisie.':'Température fraîche : une couche en plus.'):o.c==='pied'?(act==='sport'?'Sport : chaussures confortables.':rain&&o.it.rain?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='haut'?'Chaleur adaptée à '+t+' °C.':'Assorti à votre programme.';
+var why=o.c==='ext'?(t<8?'Il fait froid : la pièce la plus chaude disponible.':rain&&o.it.rain?'Pluie : pièce résistante choisie.':'Température fraîche : une couche en plus.'):o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&o.it.rain?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='haut'?'Chaleur adaptée à '+t+' °C.':'Assorti à votre programme.';
 h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div></div>';
 });
 h+='</div>';
+if(kit.length){
+h+='<div class="kit"><h3>À emporter pour le sport</h3>';
+kit.forEach(function(o){
+var why=o.c==='pied'?'Chaussures de sport.':o.c==='haut'?'Plus léger pour bouger.':'Confortable pour le sport.';
+h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div></div>';
+});
+h+='</div>';
+}
 if(!out.length)h+='<p class="note">Aucun vêtement utilisable pour cette journée. Ajoutez-en dans la garde-robe.</p>';
 if(miss.length&&out.length)h+='<p class="miss">Il vous manque : '+miss.join(', ')+'.</p>';
 if(wx&&!wxManual){
