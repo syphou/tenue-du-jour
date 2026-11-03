@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Tenue du jour</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0F5C6B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tenue du jour">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -49,6 +57,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,.vh:focus-visible+
 .tags{display:flex;flex-wrap:wrap;gap:4px}
 .tag{font-size:12px;line-height:1;padding:5px 8px;border-radius:6px;background:var(--acc-soft);color:var(--ink)}
 .del{position:absolute;top:8px;right:8px;width:40px;height:40px;border-radius:50%;border:0;background:var(--surface);color:var(--err);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.edit{position:absolute;top:8px;left:8px;width:40px;height:40px;border-radius:50%;border:0;background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 1px var(--line)}
 .empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:36px 12px;border:1px dashed var(--line);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;gap:10px}
 .empty .ic{width:36px;height:36px;color:var(--acc)}
 .empty p{margin:0;max-width:30ch}
@@ -131,7 +140,7 @@ nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr
 </div>
 
 <div class="card" id="form" hidden>
-<h2>Vérifier et corriger</h2>
+<h2 id="form-title">Vérifier et corriger</h2>
 <img id="prev" alt="Aperçu du vêtement" hidden>
 <div class="two" style="margin-top:14px">
 <label class="f"><span>Type</span><select id="f-type"></select></label>
@@ -246,10 +255,16 @@ if(!items.length){$('list').innerHTML='<div class="empty">'+icon('hanger')+'<p>V
 if(!list.length){$('list').innerHTML='<div class="empty"><p>Aucun vêtement dans cette catégorie.</p></div>';return}
 $('list').innerHTML=list.map(function(it){
 return '<div class="it">'+(it.img?'<img src="'+it.img+'" alt="'+esc(it.type)+'">':'<div class="ph"></div>')+
+'<button class="edit" type="button" data-id="'+it.id+'" aria-label="Modifier : '+esc(it.type)+'">'+icon('pen')+'</button>'+
 '<button class="del" type="button" data-id="'+it.id+'" aria-label="Supprimer : '+esc(it.type)+'">'+icon('x')+'</button>'+
 '<div class="t"><b>'+esc(it.type)+'</b><span class="c">'+esc(it.col||'couleur non précisée')+'</span><div class="tags"><span class="tag">'+WN[it.warm]+'</span>'+(it.style==2?'<span class="tag">habillé</span>':'')+(it.rain?'<span class="tag">pluie</span>':'')+'</div></div></div>'}).join('');
 }
 $('list').onclick=function(e){
+var ed=e.target.closest('.edit');
+if(ed){
+var it=items.filter(function(i){return String(i.id)===ed.dataset.id})[0];if(!it)return;
+openForm(it.img,{type:it.type,couleur:it.col,chaleur:it.warm,style:it.style,impermeable:it.rain},it.id);return;
+}
 var b=e.target.closest('.del');if(!b)return;
 var idx=items.findIndex(function(i){return String(i.id)===b.dataset.id});if(idx<0)return;
 lastDel={it:items[idx],idx:idx};
@@ -257,8 +272,10 @@ items.splice(idx,1);save();render();
 toast('Vêtement supprimé','Annuler',function(){if(!lastDel)return;items.splice(lastDel.idx,0,lastDel.it);lastDel=null;save();render()});
 };
 
-function openForm(img,d){
-cur={img:img};d=d||{};
+function openForm(img,d,id){
+cur={img:img,id:id||null};d=d||{};
+$('form-title').textContent=id?'Modifier le vêtement':'Vérifier et corriger';
+$('save').textContent=id?'Enregistrer les modifications':'Enregistrer';
 $('form').hidden=false;
 $('prev').hidden=!img;if(img)$('prev').src=img;
 $('f-type').value=TYPES[d.type]?d.type:'t-shirt';
@@ -272,10 +289,18 @@ $('manual').onclick=function(){openForm(null,{})};
 $('cancel').onclick=function(){$('form').hidden=true;cur=null};
 $('save').onclick=function(){
 if(!cur)return;
-items.unshift({id:Date.now(),img:cur.img,type:$('f-type').value,col:$('f-col').value.trim(),warm:+$('f-warm').value,style:+$('f-style').value,rain:$('f-rain').checked});
-save();filter='all';renderFilters();render();$('form').hidden=true;cur=null;
-$('msg').textContent='Vêtement enregistré. Vous pouvez en ajouter un autre.';
-toast('Vêtement enregistré');
+var vals={type:$('f-type').value,col:$('f-col').value.trim(),warm:+$('f-warm').value,style:+$('f-style').value,rain:$('f-rain').checked};
+var editing=cur.id!==null&&cur.id!==undefined&&cur.id!=='';
+if(editing){
+var tgt=items.filter(function(i){return i.id===cur.id})[0];
+if(tgt){tgt.type=vals.type;tgt.col=vals.col;tgt.warm=vals.warm;tgt.style=vals.style;tgt.rain=vals.rain}
+}else{
+items.unshift({id:Date.now(),img:cur.img,type:vals.type,col:vals.col,warm:vals.warm,style:vals.style,rain:vals.rain});
+filter='all';
+}
+save();renderFilters();render();$('form').hidden=true;cur=null;
+$('msg').textContent=editing?'Modifications enregistrées.':'Vêtement enregistré. Vous pouvez en ajouter un autre.';
+toast(editing?'Modifications enregistrées':'Vêtement enregistré');
 $('count').scrollIntoView({behavior:'smooth',block:'start'});
 };
 
@@ -437,6 +462,7 @@ res.innerHTML=h;
 renderFilters();renderActs();render();
 $('tl').textContent=tlabel(15);
 if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue du jour pour charger la météo.');
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
 </script>
 </body>
 </html>
