@@ -92,6 +92,7 @@ details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;alig
 .note{color:var(--mut);font-size:14px;margin:12px 0 0}
 nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.why{margin-top:12px;font-size:14px}.why summary{cursor:pointer;color:var(--acc);font-weight:600;min-height:32px}.why p{margin:6px 0}
 .chk{list-style:none;margin:0;padding:0}.chk li{border-top:1px solid var(--line)}.chk label{display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer}.chk input{width:22px;height:22px;accent-color:var(--acc)}.chk .miss{padding:10px 0;color:var(--mut);font-size:14px}
 .field label{display:block;font-weight:600;margin-bottom:4px}.field input[type=text],.field input[type=date]{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
 .tab{font-size:12px}
@@ -252,8 +253,8 @@ a.btn{text-decoration:none}
 </nav>
 
 <script>
-var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
-var CAT={haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
+var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','robe':'robe','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
+var CAT={robe:'Robe',haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
 var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['never','Jamais portés']];
 var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée']];
 var WN=['','léger','moyen','chaud'];
@@ -432,7 +433,7 @@ e.target.value='';
 }
 
 /* Météo en direct (Open-Meteo, gratuit, sans clé) */
-var LOC_KEY='lieu-v1',loc=null,wxManual=false;
+var LOC_KEY='lieu-v1',loc=null,wxManual=false,wxFeel=null;
 try{loc=JSON.parse(localStorage.getItem(LOC_KEY)||'null')}catch(e){loc=null}
 function saveLoc(){try{localStorage.setItem(LOC_KEY,JSON.stringify(loc))}catch(e){}}
 function wxStatus(src,sub){$('wx-src').textContent=src;$('wx-sub').textContent=sub}
@@ -450,7 +451,7 @@ return m;
 function dayWx(j,i){
 var d=j.daily;
 return{mn:Math.round(d.temperature_2m_min[i]),mx:Math.round(d.temperature_2m_max[i]),pp:d.precipitation_probability_max[i],
-mor:hourV(j,'temperature_2m',i,'08'),aft:hourV(j,'temperature_2m',i,'14'),eve:hourV(j,'temperature_2m',i,'20'),eveRain:eveRain(j,i)};
+mor:hourV(j,'temperature_2m',i,'08'),aft:hourV(j,'temperature_2m',i,'14'),eve:hourV(j,'temperature_2m',i,'20'),aftRh:hourV(j,'relative_humidity_2m',i,'14'),aftWs:hourV(j,'wind_speed_10m',i,'14'),eveRh:hourV(j,'relative_humidity_2m',i,'20'),eveWs:hourV(j,'wind_speed_10m',i,'20'),eveRain:eveRain(j,i)};
 }
 /* Température et pluie à utiliser pour le moment choisi */
 function whenValues(){
@@ -458,25 +459,25 @@ if(!wx)return null;
 if(when==='tomorrow'){
 var d=wx.d[1];if(!d)return null;
 var t=(d.mor!=null&&d.aft!=null)?Math.round((d.mor+d.aft)/2):Math.round((d.mn+d.mx)/2);
-return{t:t,rain:d.pp>=50};
+return{t:t,rain:d.pp>=50,rh:d.aftRh,ws:d.aftWs};
 }
 var d0=wx.d[0];
-if(when==='evening'){return{t:d0.eve!=null?d0.eve:wx.cur,rain:(d0.eveRain!=null?d0.eveRain:d0.pp)>=50}}
-return{t:wx.cur,rain:wx.curRain||d0.pp>=50};
+if(when==='evening'){return{t:d0.eve!=null?d0.eve:wx.cur,rain:(d0.eveRain!=null?d0.eveRain:d0.pp)>=50,rh:d0.eveRh,ws:d0.eveWs}}
+return{t:wx.cur,rain:wx.curRain||d0.pp>=50,rh:wx.curRh,ws:wx.curWs};
 }
 function applyWhen(){
 var v=whenValues();if(!v)return;
 $('temp').value=Math.max(-10,Math.min(40,v.t));
-$('rain').checked=!!v.rain;wxManual=false;variant=0;
+$('rain').checked=!!v.rain;wxManual=false;variant=0;wxFeel=(v.rh!=null&&v.ws!=null)?{rh:v.rh,ws:v.ws}:null;
 }
 async function fetchWx(){
 if(!loc)return;
 wxStatus('Chargement de la météo…','');
 try{
-var u='https://api.open-meteo.com/v1/forecast?latitude='+loc.lat+'&longitude='+loc.lon+'&current=temperature_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m,precipitation_probability&forecast_days=2&timezone=auto';
+var u='https://api.open-meteo.com/v1/forecast?latitude='+loc.lat+'&longitude='+loc.lon+'&current=temperature_2m,precipitation,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m,precipitation_probability,relative_humidity_2m,wind_speed_10m&forecast_days=2&timezone=auto';
 var r=await fetch(u);if(!r.ok)throw new Error('http');
 var j=await r.json();
-wx={cur:Math.round(j.current.temperature_2m),curRain:j.current.precipitation>0,d:[dayWx(j,0),j.daily.time.length>1?dayWx(j,1):null]};
+wx={curRh:j.current.relative_humidity_2m,curWs:j.current.wind_speed_10m,cur:Math.round(j.current.temperature_2m),curRain:j.current.precipitation>0,d:[dayWx(j,0),j.daily.time.length>1?dayWx(j,1):null]};
 applyWhen();
 var d0=wx.d[0],d1=wx.d[1];
 var h=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -548,7 +549,7 @@ if(!list.length)return list;
 list.sort(function(a,b){return b.s-a.s});
 return list.filter(function(x){return x.s>=list[0].s-6}).slice(0,3);
 }
-function manualChange(){variant=0;wxManual=true;suggest()}
+function manualChange(){variant=0;wxManual=true;wxFeel=null;suggest()}
 $('temp').oninput=manualChange;$('rain').onchange=manualChange;
 $('res').onclick=function(e){
 if(e.target.closest('#alt')){variant++;suggest();return}
@@ -577,17 +578,22 @@ var hasSport=sel.indexOf('sport')>-1,onlySport=!base.length;
 var sT=onlySport?1:Math.max.apply(null,base.map(function(a){return STY[a]}));
 var wT=t>=24?1:t>=16?1.5:t>=8?2.5:3;
 var eT=t<8?3:2;
-var needExt=t<16||(rain&&items.some(function(i){return TYPES[i.type]==='ext'&&i.rain}));
 var tgt=target();
-var ctx={t:t,rain:rain,wT:wT,eT:eT,sT:sT,sport:onlySport,ref:tgt.date};
-var out=[],miss=[],canAlt=false;
-['haut','bas','ext','pied'].forEach(function(c){
-if(c==='ext'&&!needExt)return;
-var cs=cands(c,ctx);
-if(!cs.length){miss.push(CAT[c].toLowerCase());return}
-if(cs.length>1)canAlt=true;
-out.push({c:c,it:cs[variant%cs.length].it});
-});
+var rh=wxFeel?wxFeel.rh:null,ws=wxFeel?wxFeel.ws:null;
+var at=ENGINE.feels(t,rh,ws);
+var ectx={t:t,at:at,need:ENGINE.needClo(at,onlySport?1.8:1.4),rain:rain,wind:ws||0,sT:sT,sport:onlySport,ref:tgt.date};
+var props=ENGINE.propose(ectx),out=[],miss=[],canAlt=props.length>1,pick=props.length?props[variant%props.length]:null;
+if(pick){
+function role(p){var c=TYPES[p.type];return c==='haut'&&p.type==='pull'&&pick.body&&pick.body!==p?'couche':c}
+pick.parts.forEach(function(p){out.push({c:role(p),it:p})});
+var order={robe:0,haut:1,couche:2,bas:3,ext:4,pied:5};out.sort(function(x,y){return order[x.c]-order[y.c]});
+var have={};pick.parts.forEach(function(p){have[TYPES[p.type]]=1});
+if(!have.haut&&!have.robe)miss.push('haut');
+if(!have.bas&&!have.robe)miss.push('bas');
+if(!have.pied)miss.push('chaussures');
+if(t<16&&!have.ext&&!items.some(function(i){return TYPES[i.type]==='ext'}))miss.push('veste ou manteau');
+}
+var expl=pick?ENGINE.explain(pick,ectx):[];
 lastOut=out;
 var kit=[];
 if(hasSport&&!onlySport){
@@ -598,10 +604,11 @@ var labs=ACTS.filter(function(a){return sel.indexOf(a[0])>-1}).map(function(a){r
 var wl=WHENS.filter(function(w){return w[0]===when})[0][2];
 var h='<h2>Pour '+wl+', '+t+' °C, '+joinFr(labs)+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
 out.forEach(function(o){
-var why=o.c==='ext'?(t<8?'Il fait froid : la pièce la plus chaude disponible.':rain&&o.it.rain?'Pluie : pièce résistante choisie.':'Température fraîche : une couche en plus.'):o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&o.it.rain?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='haut'?'Chaleur adaptée à '+t+' °C.':'Assorti à votre programme.';
+var why=o.c==='ext'?(rain&&o.it.rain?'Pluie : pièce résistante.':at<8?'Il fait froid : couche extérieure chaude.':'Couche extérieure contre la fraîcheur et le vent.'):o.c==='couche'?'Couche chaude sous la veste, facile à retirer.':o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&(o.it.rain||o.it.type==='bottes')?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='robe'?'Une pièce, déjà assortie.':o.c==='haut'?'Isolation adaptée à '+Math.round(at)+' ° ressentis.':'Assorti au haut et à votre programme.';
 h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div></div>';
 });
 h+='</div>';
+if(expl.length)h+='<details class="why"><summary>Pourquoi cette tenue ?</summary><p>'+expl.map(esc).join('</p><p>')+'</p><p class="note">Isolation en clo (ASHRAE 55), température ressentie (Steadman, Bureau of Meteorology), règles de couleurs classiques.</p></details>';
 if(kit.length){
 h+='<div class="kit"><h3>À emporter pour le sport</h3>';
 kit.forEach(function(o){
@@ -678,6 +685,7 @@ $('tl').textContent=tlabel(15);
 if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue pour charger la météo.');
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
 </script>
+<script src="moteur.js"></script>
 <script src="valise.js"></script>
 <script src="plus.js"></script>
 </body>
