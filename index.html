@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tenue du jour</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: mobile app with a fixed bottom tab bar; wardrobe as a filterable grid, outfit as a live-updating result under three controls. */
+:root{
+--bg:#EDF0F2;--surface:#FFFFFF;--ink:#13202A;--mut:#566672;--line:#D3DAE0;
+--acc:#0F5C6B;--acc-ink:#FFFFFF;--acc-soft:#D9EBEE;--err:#A12B2B;--err-soft:#F6E1E1;
+--display:"Bricolage Grotesque",system-ui,sans-serif;--body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+--r:14px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E161C;--surface:#16212A;--ink:#E8EEF2;--mut:#93A3AF;--line:#263540;--acc:#6FC3D1;--acc-ink:#08242B;--acc-soft:#173A44;--err:#F19A9A;--err-soft:#3A2024;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E161C;--surface:#16212A;--ink:#E8EEF2;--mut:#93A3AF;--line:#263540;--acc:#6FC3D1;--acc-ink:#08242B;--acc-soft:#173A44;--err:#F19A9A;--err-soft:#3A2024;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 120px}
+main{max-width:560px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;font-weight:700;letter-spacing:-0.01em}
+h1{font-size:32px;line-height:1.05}
+h2{font-size:20px;line-height:1.2}
+.date{color:var(--mut);margin:6px 0 20px;font-size:15px;text-transform:capitalize}
+.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:16px}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);pointer-events:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 16px var(--body);cursor:pointer;text-align:center}
+.btn.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);min-height:56px;font-size:17px}
+.btn:active{transform:scale(.98)}
+button:focus-visible,select:focus-visible,input:focus-visible,.vh:focus-visible+label{outline:3px solid var(--acc);outline-offset:2px}
+.add{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.add .wide{grid-column:1/-1}
+#msg{margin:12px 0 0;color:var(--mut);font-size:14px;min-height:21px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;margin:0 -2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:40px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 15px var(--body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:8px 0 10px}
+.head small{color:var(--mut);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.it{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:relative;min-width:0}
+.it img,.ph{width:100%;max-width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--acc-soft)}
+.it .t{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.it b{font-weight:600;line-height:1.2}
+.it .c{color:var(--mut);font-size:14px;line-height:1.2}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:12px;line-height:1;padding:5px 8px;border-radius:6px;background:var(--acc-soft);color:var(--ink)}
+.del{position:absolute;top:8px;right:8px;width:40px;height:40px;border-radius:50%;border:0;background:var(--surface);color:var(--err);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:36px 12px;border:1px dashed var(--line);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty .ic{width:36px;height:36px;color:var(--acc)}
+.empty p{margin:0;max-width:30ch}
+.f{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;min-width:0}
+.f>span,.lab{font-size:14px;color:var(--mut);font-weight:500}
+select,input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;min-height:48px;padding:0 12px;width:100%}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#prev{display:block;width:100%;max-height:280px;object-fit:contain;border-radius:12px;background:var(--bg);margin-bottom:14px}
+.sw{display:flex;align-items:center;gap:12px;min-height:48px;cursor:pointer}
+.sw input{appearance:none;-webkit-appearance:none;width:50px;height:30px;border-radius:99px;background:var(--line);position:relative;margin:0;cursor:pointer;flex:none;transition:background .15s}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--surface);transition:transform .15s}
+.sw input:checked{background:var(--acc)}
+.sw input:checked::after{transform:translateX(20px)}
+.actions{display:flex;gap:10px}
+.actions .btn{flex:1}
+.temp{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.temp .big{font-family:var(--display);font-weight:700;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.temp .lbl{color:var(--mut);font-weight:500}
+input[type=range]{width:100%;margin:14px 0 4px;accent-color:var(--acc);height:32px}
+.scale{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+.sec{margin-bottom:18px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pick{display:flex;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.pick:first-of-type{border-top:0}
+.pick img,.pick .ph{width:72px;height:72px;border-radius:12px;flex:none;aspect-ratio:1;object-fit:cover}
+.pick .k{font-size:13px;color:var(--mut);font-weight:500}
+.pick b{display:block;font-weight:600;line-height:1.25}
+.pick p{margin:2px 0 0;color:var(--mut);font-size:14px;line-height:1.35}
+.miss{margin:6px 0 0;padding:10px 12px;border-radius:10px;background:var(--err-soft);color:var(--err);font-size:14px}
+ul.r{margin:10px 0 0;padding-left:18px;color:var(--mut);font-size:14px;display:flex;flex-direction:column;gap:4px}
+details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
+.note{color:var(--mut);font-size:14px;margin:12px 0 0}
+nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;justify-content:center;border:0;border-radius:12px;background:transparent;color:var(--mut);font:500 13px var(--body);cursor:pointer}
+.tab[aria-current="page"]{background:var(--acc-soft);color:var(--ink)}
+.tab[aria-current="page"] .ic{color:var(--acc)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:30;max-width:min(520px,calc(100% - 32px));width:max-content;display:flex;align-items:center;gap:14px;background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:12px;font-size:15px}
+#toast button{background:transparent;border:0;color:inherit;font:600 15px var(--body);text-decoration:underline;cursor:pointer;min-height:32px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.btn:active{transform:none}}
+@media (min-width:480px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.wx{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:12px;background:var(--acc-soft);margin:14px 0 4px}
+.wx p{margin:0}
+.wx .src{font-weight:600}
+.wx .sub{color:var(--mut);font-size:14px}
+.wx .row{display:flex;gap:8px;flex-wrap:wrap}
+.wx .row .btn{min-height:44px;font-size:15px;padding:0 14px}
+.wx form{display:flex;gap:8px}
+.wx form input{flex:1;min-width:0}
+.wx form .btn{flex:none}
+.dl{font-size:13px;color:var(--mut);margin:8px 0 0}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5-5-8 8"/></symbol>
+<symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+<symbol id="i-hanger" viewBox="0 0 24 24"><path d="M12 8V6.5a2 2 0 1 0-2-2M12 8l8.5 6.2A1.5 1.5 0 0 1 19.6 17H4.4a1.5 1.5 0 0 1-.9-2.8z"/></symbol>
+<symbol id="i-shirt" viewBox="0 0 24 24"><path d="M8 4L3 7l2 4 3-1v10h8V10l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+</svg>
+
+<main>
+<h1>Tenue du jour</h1>
+<p class="date" id="date"></p>
+
+<section id="v1" aria-labelledby="h-add">
+<div class="card">
+<h2 id="h-add">Ajouter un vêtement</h2>
+<div class="add">
+<input type="file" id="file" accept="image/*" capture="environment" class="vh">
+<label for="file" class="btn pri wide"><svg class="ic"><use href="#i-cam"/></svg>Prendre une photo</label>
+<input type="file" id="gallery" accept="image/*" class="vh">
+<label for="gallery" class="btn"><svg class="ic"><use href="#i-img"/></svg>Galerie</label>
+<button class="btn" id="manual" type="button"><svg class="ic"><use href="#i-pen"/></svg>Sans photo</button>
+</div>
+<p id="msg" aria-live="polite">La photo est analysée pour proposer le type, la couleur et la chaleur. Vous pouvez tout corriger.</p>
+</div>
+
+<div class="card" id="form" hidden>
+<h2>Vérifier et corriger</h2>
+<img id="prev" alt="Aperçu du vêtement" hidden>
+<div class="two" style="margin-top:14px">
+<label class="f"><span>Type</span><select id="f-type"></select></label>
+<label class="f"><span>Couleur</span><input type="text" id="f-col" placeholder="ex. bleu marine"></label>
+<label class="f"><span>Chaleur</span><select id="f-warm"><option value="1">Léger</option><option value="2" selected>Moyen</option><option value="3">Chaud</option></select></label>
+<label class="f"><span>Style</span><select id="f-style"><option value="1">Décontracté</option><option value="2">Habillé</option></select></label>
+</div>
+<label class="sw" style="margin-bottom:14px"><input type="checkbox" id="f-rain" role="switch"><span>Résiste à la pluie</span></label>
+<div class="actions"><button class="btn pri" id="save" type="button">Enregistrer</button><button class="btn" id="cancel" type="button">Annuler</button></div>
+</div>
+
+<div class="head"><h2 id="count">Mes vêtements</h2><small id="count2"></small></div>
+<div class="chips" id="filters" role="group" aria-label="Filtrer par catégorie"></div>
+<div class="grid" id="list"></div>
+</section>
+
+<section id="v2" hidden aria-labelledby="h-day">
+<div class="card">
+<h2 id="h-day">Votre journée</h2>
+<div class="wx" aria-live="polite">
+<p class="src" id="wx-src">Météo non chargée</p>
+<p class="sub" id="wx-sub">Autorisez votre position ou cherchez une ville pour utiliser la météo réelle.</p>
+<div class="row">
+<button class="btn pri" type="button" id="wx-geo">Ma position</button>
+<button class="btn" type="button" id="wx-refresh" hidden>Actualiser</button>
+</div>
+<form id="wx-form">
+<input type="text" id="wx-city" placeholder="ou une ville, ex. Lyon" autocomplete="address-level2" aria-label="Ville">
+<button class="btn" type="submit">Chercher</button>
+</form>
+</div>
+<div class="sec" style="margin-top:14px">
+<div class="temp"><span class="big" id="tv">15 °C</span><span class="lbl" id="tl"></span></div>
+<input type="range" id="temp" min="-10" max="40" step="1" value="15" aria-label="Température en degrés Celsius">
+<div class="scale"><span>-10</span><span>5</span><span>15</span><span>25</span><span>40</span></div>
+</div>
+<div class="sec">
+<span class="lab">Au programme</span>
+<div class="acts" id="acts" role="group" aria-label="Programme du jour"></div>
+</div>
+<label class="sw"><input type="checkbox" id="rain" role="switch"><span>Il pleut</span></label>
+<p class="note">Vous pouvez aussi régler la température et la pluie à la main : la météo réelle reste disponible avec « Actualiser ».</p>
+</div>
+<div class="card" id="res" aria-live="polite"></div>
+<div class="card">
+<details>
+<summary>Règles utilisées</summary>
+<ul class="r">
+<li>Moins de 8 °C : haut chaud et manteau.</li>
+<li>De 8 à 15 °C : haut moyen et veste.</li>
+<li>De 16 à 23 °C : haut léger ou moyen, veste si besoin.</li>
+<li>24 °C et plus : tenue légère, short possible.</li>
+<li>Pluie : vêtements résistants à la pluie en priorité.</li>
+<li>Réunion ou soirée : style habillé. Sport : baskets.</li>
+</ul>
+</details>
+</div>
+</section>
+</main>
+
+<div id="toast" role="status" hidden><span id="toast-t"></span><button type="button" id="toast-b" hidden></button></div>
+
+<nav class="bar" aria-label="Navigation">
+<div>
+<button class="tab" id="t1" type="button" aria-current="page"><svg class="ic"><use href="#i-hanger"/></svg>Garde-robe</button>
+<button class="tab" id="t2" type="button"><svg class="ic"><use href="#i-shirt"/></svg>Tenue du jour</button>
+</div>
+</nav>
+
+<script>
+var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
+var CAT={haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
+var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures']];
+var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée']];
+var WN=['','léger','moyen','chaud'];
+var KEY='garde-robe-v1',items=[],cur=null,filter='all',act='bureau',lastDel=null,toastT=null,wxLoaded=false;
+var $=function(i){return document.getElementById(i)};
+try{items=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){items=[]}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){$('msg').textContent='Espace de stockage plein : supprimez quelques vêtements.'}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function icon(n){return '<svg class="ic"><use href="#i-'+n+'"/></svg>'}
+
+try{$('date').textContent=new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}catch(e){}
+$('f-type').innerHTML=Object.keys(TYPES).map(function(t){return '<option>'+t+'</option>'}).join('');
+
+function toast(msg,label,fn){
+$('toast-t').textContent=msg;var b=$('toast-b');
+if(label){b.textContent=label;b.hidden=false;b.onclick=function(){fn();hideToast()}}else{b.hidden=true}
+$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(hideToast,5000);
+}
+function hideToast(){$('toast').hidden=true}
+
+function show(n){
+$('v1').hidden=n!==1;$('v2').hidden=n!==2;
+if(n===1){$('t1').setAttribute('aria-current','page');$('t2').removeAttribute('aria-current')}
+else{$('t2').setAttribute('aria-current','page');$('t1').removeAttribute('aria-current');suggest();if(loc&&!wxLoaded){wxLoaded=true;fetchWx()}}
+window.scrollTo(0,0);
+}
+$('t1').onclick=function(){show(1)};$('t2').onclick=function(){show(2)};
+
+function renderFilters(){
+$('filters').innerHTML=FILT.map(function(f){return '<button type="button" class="chip" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>'}).join('');
+}
+$('filters').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;filter=b.dataset.f;renderFilters();render()};
+
+function render(){
+$('count').textContent='Mes vêtements';
+var list=items.filter(function(i){return filter==='all'||TYPES[i.type]===filter});
+$('count2').textContent=items.length?(items.length+(items.length>1?' pièces':' pièce')):'';
+$('filters').hidden=!items.length;
+if(!items.length){$('list').innerHTML='<div class="empty">'+icon('hanger')+'<p>Votre garde-robe est vide. Prenez une première photo pour commencer.</p></div>';return}
+if(!list.length){$('list').innerHTML='<div class="empty"><p>Aucun vêtement dans cette catégorie.</p></div>';return}
+$('list').innerHTML=list.map(function(it){
+return '<div class="it">'+(it.img?'<img src="'+it.img+'" alt="'+esc(it.type)+'">':'<div class="ph"></div>')+
+'<button class="del" type="button" data-id="'+it.id+'" aria-label="Supprimer : '+esc(it.type)+'">'+icon('x')+'</button>'+
+'<div class="t"><b>'+esc(it.type)+'</b><span class="c">'+esc(it.col||'couleur non précisée')+'</span><div class="tags"><span class="tag">'+WN[it.warm]+'</span>'+(it.style==2?'<span class="tag">habillé</span>':'')+(it.rain?'<span class="tag">pluie</span>':'')+'</div></div></div>'}).join('');
+}
+$('list').onclick=function(e){
+var b=e.target.closest('.del');if(!b)return;
+var idx=items.findIndex(function(i){return String(i.id)===b.dataset.id});if(idx<0)return;
+lastDel={it:items[idx],idx:idx};
+items.splice(idx,1);save();render();
+toast('Vêtement supprimé','Annuler',function(){if(!lastDel)return;items.splice(lastDel.idx,0,lastDel.it);lastDel=null;save();render()});
+};
+
+function openForm(img,d){
+cur={img:img};d=d||{};
+$('form').hidden=false;
+$('prev').hidden=!img;if(img)$('prev').src=img;
+$('f-type').value=TYPES[d.type]?d.type:'t-shirt';
+$('f-col').value=d.couleur||'';
+$('f-warm').value=[1,2,3].indexOf(+d.chaleur)>-1?+d.chaleur:2;
+$('f-style').value=+d.style===2?2:1;
+$('f-rain').checked=!!d.impermeable;
+$('form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('manual').onclick=function(){openForm(null,{})};
+$('cancel').onclick=function(){$('form').hidden=true;cur=null};
+$('save').onclick=function(){
+if(!cur)return;
+items.unshift({id:Date.now(),img:cur.img,type:$('f-type').value,col:$('f-col').value.trim(),warm:+$('f-warm').value,style:+$('f-style').value,rain:$('f-rain').checked});
+save();filter='all';renderFilters();render();$('form').hidden=true;cur=null;
+$('msg').textContent='Vêtement enregistré. Vous pouvez en ajouter un autre.';
+toast('Vêtement enregistré');
+$('count').scrollIntoView({behavior:'smooth',block:'start'});
+};
+
+function shrink(file,max){return new Promise(function(res,rej){
+var u=URL.createObjectURL(file),im=new Image();
+im.onload=function(){var k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(function(b){res({blob:b,url:c.toDataURL('image/jpeg',0.7)})},'image/jpeg',0.8)};
+im.onerror=function(){rej(new Error('image'))};im.src=u})}
+/* Reconnaissance dans le navigateur (modèle CLIP gratuit, téléchargé une seule fois) */
+var CLIP_URL='https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+var EN={'t-shirt':'a t-shirt','chemise':'a button-up shirt','pull':'a sweater','pantalon':'a pair of trousers','jean':'a pair of jeans','short':'a pair of shorts','jupe':'a skirt','veste':'a jacket','manteau':'a winter coat','chaussures de ville':'a pair of dress shoes','baskets':'a pair of sneakers','bottes':'a pair of boots'};
+var WARM={'t-shirt':1,'short':1,'jupe':1,'chemise':2,'pantalon':2,'jean':2,'veste':2,'baskets':2,'chaussures de ville':2,'pull':3,'manteau':3,'bottes':3};
+var DRESSY={'chemise':1,'chaussures de ville':1};
+var RAINPROOF={'manteau':1,'bottes':1};
+var clipP=null;
+function loadClip(){
+if(!clipP)clipP=import(CLIP_URL).then(function(m){return m.pipeline('zero-shot-image-classification','Xenova/clip-vit-base-patch32')}).catch(function(e){clipP=null;throw e});
+return clipP;
+}
+function colorName(r,g,b){
+r/=255;g/=255;b/=255;
+var mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn,h=0,s=0;
+if(d){s=d/(1-Math.abs(2*l-1));
+if(mx===r)h=60*(((g-b)/d)%6);else if(mx===g)h=60*((b-r)/d+2);else h=60*((r-g)/d+4);
+if(h<0)h+=360}
+if(l<0.13)return 'noir';
+if(s<0.14){return l>0.86?'blanc':l>0.6?'gris clair':l>0.3?'gris':'gris foncé'}
+if(h>=18&&h<50&&s<0.5&&l>0.62)return 'beige';
+if(h>=10&&h<45&&l<0.42)return 'marron';
+if(h<15||h>=345)return l>0.7?'rose':'rouge';
+if(h<42)return 'orange';
+if(h<68)return 'jaune';
+if(h<165)return 'vert';
+if(h<195)return 'turquoise';
+if(h<255)return l<0.33?'bleu marine':'bleu';
+if(h<290)return 'violet';
+return 'rose';
+}
+function dominantColor(url){return new Promise(function(res){
+var im=new Image();
+im.onload=function(){try{
+var c=document.createElement('canvas');c.width=c.height=32;var x=c.getContext('2d');
+x.drawImage(im,im.width*0.25,im.height*0.25,im.width*0.5,im.height*0.5,0,0,32,32);
+var p=x.getImageData(0,0,32,32).data,r=0,g=0,b=0,n=0;
+for(var i=0;i<p.length;i+=4){r+=p[i];g+=p[i+1];b+=p[i+2];n++}
+res(colorName(r/n,g/n,b/n))}catch(e){res('')}};
+im.onerror=function(){res('')};im.src=url;
+})}
+async function analyse(dataUrl){
+var out={couleur:await dominantColor(dataUrl)};
+try{
+var clip=await loadClip();
+var names=Object.keys(EN);
+var labels=names.map(function(n){return 'a photo of '+EN[n]});
+var r=await clip(dataUrl,labels);
+var top=r&&r[0]?names[labels.indexOf(r[0].label)]:null;
+if(top){out.type=top;out.chaleur=WARM[top];out.style=DRESSY[top]?2:1;out.impermeable=!!RAINPROOF[top];out.ia=true}
+}catch(e){out.ia=false}
+return out;
+}
+async function onPick(e){
+var f=e.target.files&&e.target.files[0];if(!f)return;
+$('msg').textContent='Analyse de la photo en cours. Au premier usage, le modèle de reconnaissance se télécharge (environ 90 Mo, une seule fois).';
+try{
+var a=await shrink(f,640),t=await shrink(f,240);
+var d=await analyse(a.url);
+openForm(t.url,d);
+$('msg').textContent=d.ia?'Proposition faite à partir de la photo. Corrigez si besoin.':'Reconnaissance du type indisponible : choisissez-le à la main. La couleur est une estimation.';
+}catch(err){$('msg').textContent='Photo illisible. Essayez une autre image.'}
+e.target.value='';
+}
+
+/* Météo en direct (Open-Meteo, gratuit, sans clé) */
+var LOC_KEY='lieu-v1',loc=null,wxManual=false;
+try{loc=JSON.parse(localStorage.getItem(LOC_KEY)||'null')}catch(e){loc=null}
+function saveLoc(){try{localStorage.setItem(LOC_KEY,JSON.stringify(loc))}catch(e){}}
+function wxStatus(src,sub){$('wx-src').textContent=src;$('wx-sub').textContent=sub}
+async function fetchWx(){
+if(!loc)return;
+wxStatus('Chargement de la météo…','');
+try{
+var u='https://api.open-meteo.com/v1/forecast?latitude='+loc.lat+'&longitude='+loc.lon+'&current=temperature_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto';
+var r=await fetch(u);if(!r.ok)throw new Error('http');
+var j=await r.json();
+var t=Math.round(j.current.temperature_2m),mn=Math.round(j.daily.temperature_2m_min[0]),mx=Math.round(j.daily.temperature_2m_max[0]),pp=j.daily.precipitation_probability_max[0];
+var rain=(j.current.precipitation>0)||(pp>=50);
+$('temp').value=Math.max(-10,Math.min(40,t));
+$('rain').checked=rain;wxManual=false;
+var h=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+wxStatus(loc.name+' : '+t+' °C'+(rain?', pluie probable':''),'Aujourd’hui de '+mn+' à '+mx+' °C, pluie '+(pp==null?'?':pp)+' %. Mis à jour à '+h+'.');
+$('wx-refresh').hidden=false;
+suggest();
+}catch(e){wxStatus('Météo indisponible','Vérifiez votre connexion, puis appuyez sur Actualiser. Vous pouvez régler la température à la main.');$('wx-refresh').hidden=false}
+}
+$('wx-geo').onclick=function(){
+if(!navigator.geolocation){wxStatus('Position indisponible','Cherchez une ville à la place.');return}
+wxStatus('Recherche de votre position…','Acceptez la demande d’autorisation de votre navigateur.');
+navigator.geolocation.getCurrentPosition(async function(p){
+loc={lat:+p.coords.latitude.toFixed(3),lon:+p.coords.longitude.toFixed(3),name:'Votre position'};saveLoc();fetchWx();
+},function(){wxStatus('Position refusée','Cherchez une ville à la place, ou autorisez la position dans les réglages du navigateur.')},{timeout:15000,maximumAge:600000});
+};
+$('wx-form').onsubmit=async function(e){
+e.preventDefault();
+var q=$('wx-city').value.trim();if(!q)return;
+wxStatus('Recherche de « '+q+' »…','');
+try{
+var r=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=1&language=fr&format=json');
+var j=await r.json();
+if(!j.results||!j.results.length){wxStatus('Ville introuvable','Essayez une autre orthographe.');return}
+var c=j.results[0];
+loc={lat:c.latitude,lon:c.longitude,name:c.name+(c.country_code?' ('+c.country_code+')':'')};saveLoc();$('wx-city').value='';fetchWx();
+}catch(err){wxStatus('Recherche impossible','Vérifiez votre connexion et réessayez.')}
+};
+$('wx-refresh').onclick=fetchWx;
+$('file').onchange=onPick;$('gallery').onchange=onPick;
+
+function tlabel(t){return t<8?'Froid':t<16?'Frais':t<24?'Doux':'Chaud'}
+function renderActs(){
+$('acts').innerHTML=ACTS.map(function(a){return '<button type="button" class="chip" data-a="'+a[0]+'" aria-pressed="'+(act===a[0])+'">'+a[1]+'</button>'}).join('');
+}
+$('acts').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;act=b.dataset.a;renderActs();suggest()};
+$('temp').oninput=suggest;$('rain').onchange=suggest;
+
+function suggest(){
+var t=parseFloat($('temp').value);if(isNaN(t))t=15;
+var rain=$('rain').checked;
+$('tv').textContent=t+' °C';$('tl').textContent=tlabel(t);
+var res=$('res');
+if(!items.length){res.innerHTML='<div class="empty" style="border:0;padding:12px">'+icon('shirt')+'<p>Ajoutez quelques vêtements pour recevoir une proposition.</p><button class="btn pri" type="button" id="go-add">Ajouter un vêtement</button></div>';$('go-add').onclick=function(){show(1)};return}
+var sT={bureau:1.5,reunion:2,soiree:2,sport:1,decontracte:1}[act];
+var wT=t>=24?1:t>=16?1.5:t>=8?2.5:3;
+var eT=t<8?3:2;
+var needExt=t<16||(rain&&items.some(function(i){return TYPES[i.type]==='ext'&&i.rain}));
+var out=[],miss=[];
+['haut','bas','ext','pied'].forEach(function(c){
+if(c==='ext'&&!needExt)return;
+var best=null,bs=-1e9;
+items.forEach(function(it){
+if(TYPES[it.type]!==c)return;
+var s=-Math.abs(it.warm-(c==='ext'?eT:wT))*(c==='bas'||c==='pied'?0.5:2)-Math.abs(it.style-sT)*(act==='sport'?0.3:2);
+if(rain&&it.rain)s+=2;
+if(act==='sport'&&it.type==='baskets')s+=4;
+if(it.type==='short'&&t<22)s-=10;
+if(it.type==='bottes'&&!rain&&t>=16)s-=3;
+if(s>bs){bs=s;best=it}
+});
+if(best)out.push({c:c,it:best});else miss.push(CAT[c].toLowerCase());
+});
+var lab=ACTS.filter(function(a){return a[0]===act})[0][2];
+var h='<h2>Pour '+t+' °C, '+lab+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
+out.forEach(function(o){
+var why=o.c==='ext'?(t<8?'Il fait froid : la pièce la plus chaude disponible.':rain&&o.it.rain?'Pluie : pièce résistante choisie.':'Température fraîche : une couche en plus.'):o.c==='pied'?(act==='sport'?'Sport : chaussures confortables.':rain&&o.it.rain?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='haut'?'Chaleur adaptée à '+t+' °C.':'Assorti à votre programme.';
+h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div></div>';
+});
+h+='</div>';
+if(!out.length)h+='<p class="note">Aucun vêtement utilisable pour cette journée. Ajoutez-en dans la garde-robe.</p>';
+if(miss.length&&out.length)h+='<p class="miss">Il vous manque : '+miss.join(', ')+'.</p>';
+res.innerHTML=h;
+}
+renderFilters();renderActs();render();
+$('tl').textContent=tlabel(15);
+if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue du jour pour charger la météo.');
+</script>
+</body>
+</html>
