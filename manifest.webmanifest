@@ -1,6 +1,6 @@
 {
-  "name": "Tenue du jour",
-  "short_name": "Tenue du jour",
+  "name": "Habille-moi",
+  "short_name": "Habille-moi",
   "description": "Propose la tenue du jour selon votre garde-robe, la météo et votre programme.",
   "lang": "fr",
   "start_url": "./",

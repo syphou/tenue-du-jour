@@ -1,4 +1,4 @@
-# Tenue du jour
+# Habille-moi
 
 Application web qui propose la tenue du jour selon votre garde-robe, la météo et votre programme.
 

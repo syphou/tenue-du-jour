@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Tenue du jour</title>
+<title>Habille-moi</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#0F5C6B">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Tenue du jour">
+<meta name="apple-mobile-web-app-title" content="Habille-moi">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>
@@ -135,7 +135,7 @@ a.btn{text-decoration:none}
 </svg>
 
 <main>
-<h1>Tenue du jour</h1>
+<h1>Habille-moi</h1>
 <p class="date" id="date"></p>
 
 <section id="v1" aria-labelledby="h-add">
@@ -667,14 +667,14 @@ if(ex){ids.forEach(function(i){if(ex.ids.indexOf(i)<0)ex.ids.push(i)})}else worn
 worn.sort(function(a,b){return a.date<b.date?-1:1});
 save();saveWorn();renderFilters();render();
 $('bk-msg').textContent=added+(added>1?' vêtements ajoutés':' vêtement ajouté')+(skipped?', '+skipped+' ignoré'+(skipped>1?'s':'')+' (déjà présents ou non valides).':'.');
-}catch(err){$('bk-msg').textContent='Fichier non reconnu. Choisissez un fichier exporté depuis Tenue du jour.'}
+}catch(err){$('bk-msg').textContent='Fichier non reconnu. Choisissez un fichier exporté depuis Habille-moi.'}
 };
 rd.readAsText(f);e.target.value='';
 };
 if(FEEDBACK_URL){$('fb-a').href=FEEDBACK_URL;$('fb').hidden=false}
 renderFilters();renderWhens();renderActs();render();
 $('tl').textContent=tlabel(15);
-if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue du jour pour charger la météo.');
+if(loc)wxStatus(loc.name,'Ouvrez l’onglet Tenue pour charger la météo.');
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
 </script>
 <script src="valise.js"></script>
