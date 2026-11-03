@@ -235,8 +235,9 @@ a.btn{text-decoration:none}
 </div>
 <p id="bk-msg" class="dl" aria-live="polite"></p>
 </div>
-</section>
 <p id="fb" hidden style="text-align:center;margin:8px 0 0"><a class="btn" id="fb-a" href="#" target="_blank" rel="noopener">Donner mon avis</a></p>
+</section>
+
 </main>
 
 <div id="toast" role="status" hidden><span id="toast-t"></span><button type="button" id="toast-b" hidden></button></div>
@@ -262,7 +263,7 @@ var WORN_KEY='porte-v1',worn=[],variant=0,wx=null,lastOut=[],selTouched=false;
 var when=(function(){var h=new Date().getHours();return h<17?'day':h<21?'evening':'tomorrow'})();
 if(when==='evening')sel=['soiree'];
 /* Lien du formulaire d'avis pour les testeurs : à renseigner (ex. un Google Forms). Vide = bouton masqué. */
-var FEEDBACK_URL='';
+var FEEDBACK_URL='https://docs.google.com/forms/d/e/1FAIpQLSdkmvwwC5VnHc6wBBhtPVQ1ZQHAI09GwppDIzX8vxpAklTqSQ/viewform';
 var $=function(i){return document.getElementById(i)};
 try{items=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){items=[]}
 if(!Array.isArray(items))items=[];
