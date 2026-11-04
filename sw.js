@@ -1,6 +1,6 @@
 /* Service worker : l'appli s'ouvre sans réseau. La météo et le modèle de
    reconnaissance ont besoin d'Internet ; tout le reste fonctionne hors ligne. */
-var VERSION = 'tdj-v13';
+var VERSION = 'tdj-v14';
 var SHELL = ['./', 'index.html','catalogue.js','moteur.js','agent.js','valise.js','plus.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {

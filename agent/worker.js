@@ -4,7 +4,14 @@
    - Garde-fous : origine autorisée, taille limitée, rôles limités, longueur de réponse limitée, plafonds journaliers optionnels (KV). */
 
 const ALLOWED_ORIGIN = "https://syphou.github.io"; // adresse de votre appli (sans / final)
-const MODEL = "@cf/meta/llama-3.1-8b-instruct";    // modèle léger : plus de réponses par jour dans l'offre gratuite
+// Modèles essayés dans l'ordre : le premier qui répond est utilisé (légers d'abord : plus de réponses par jour dans l'offre gratuite).
+const MODELS = [
+  "@cf/meta/llama-3.1-8b-instruct-fp8",
+  "@cf/meta/llama-3.1-8b-instruct",
+  "@cf/meta/llama-3.2-3b-instruct",
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  "@cf/mistral/mistral-7b-instruct-v0.1",
+];
 const MAX_BODY = 20000;                              // octets
 const MAX_TOKENS = 450;
 const PER_IP_PER_DAY = 40;                           // utilisé seulement si un espace KV « LIMITS » est lié
@@ -54,20 +61,25 @@ export default {
       await env.LIMITS.put(kAll, String(nAll + 1), { expirationTtl: 90000 });
     }
 
-    try {
-      const out = await env.AI.run(env.MODEL || MODEL, {
-        messages,
-        max_tokens: Math.min(Number(body.max_tokens) || MAX_TOKENS, MAX_TOKENS),
-        temperature: 0.4,
-      });
-      let text = "";
-      if (typeof out === "string") text = out;
-      else if (out && typeof out.response === "string") text = out.response;
-      else if (out && out.result && typeof out.result.response === "string") text = out.result.response;
-      else text = JSON.stringify(out || {});
-      return json({ text }, 200, allow);
-    } catch (e) {
-      return json({ error: "model" }, 502, allow);
+    const list = env.MODEL ? [env.MODEL, ...MODELS] : MODELS;
+    let lastErr = "";
+    for (const model of list) {
+      try {
+        const out = await env.AI.run(model, {
+          messages,
+          max_tokens: Math.min(Number(body.max_tokens) || MAX_TOKENS, MAX_TOKENS),
+          temperature: 0.4,
+        });
+        let text = "";
+        if (typeof out === "string") text = out;
+        else if (out && typeof out.response === "string") text = out.response;
+        else if (out && out.result && typeof out.result.response === "string") text = out.result.response;
+        else text = JSON.stringify(out || {});
+        return json({ text, model }, 200, allow);
+      } catch (e) {
+        lastErr = model.split("/").pop() + " : " + String((e && e.message) || e).slice(0, 160);
+      }
     }
+    return json({ error: "model", detail: lastErr }, 502, allow);
   },
 };

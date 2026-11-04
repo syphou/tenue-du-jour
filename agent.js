@@ -35,7 +35,7 @@ var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},ms||30000);
 try{
 var r=await fetch(url(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:messages,max_tokens:450}),signal:ctl.signal});
 var j=await r.json().catch(function(){return{}});
-if(!r.ok)throw new Error(j&&j.error||('http '+r.status));
+if(!r.ok)throw new Error((j&&j.error||('http '+r.status))+(j&&j.detail?' ('+j.detail+')':''));
 if(typeof j.text!=='string')throw new Error('vide');
 return j.text;
 }finally{clearTimeout(t)}

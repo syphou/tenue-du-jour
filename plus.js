@@ -66,5 +66,5 @@ var u=document.getElementById('agent-url');if(u)AGENT.setUrl(u.value);
 var m=document.getElementById('agent-msg');
 if(!/^https:\/\//.test(AGENT.url())){m.textContent='Collez d’abord l’adresse du relais (elle commence par https://).';return}
 m.textContent='Test en cours…';
-AGENT.test().then(function(ok){m.textContent=ok?'Connexion réussie : l’agent IA est prêt.':'Le relais répond, mais pas comme prévu.'}).catch(function(err){m.textContent='Échec : '+(err&&err.message||'erreur')+'. Vérifiez l’adresse et la liaison « AI » du Worker.'});
+AGENT.test().then(function(ok){m.textContent=ok?'Connexion réussie : l’agent IA est prêt.':'Le relais répond, mais pas comme prévu.'}).catch(function(err){var em=(err&&err.message)||'erreur';m.textContent='Échec : '+em+(/^model/.test(em)?'. Le relais est joint, mais le modèle d’IA a refusé la demande : envoyez-moi ce message.':/origin/.test(em)?'. Ouvrez l’appli depuis https://syphou.github.io/tenue-du-jour/.':/fetch/i.test(em)?'. Vérifiez l’adresse du relais.':'.')});
 });
