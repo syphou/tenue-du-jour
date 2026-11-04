@@ -17,9 +17,8 @@ function agentText(){
 var A=window.AGENT;if(!A)return '';
 return '<h3 style="margin:18px 0 6px">Agent IA styliste</h3>'+
 '<p class="note">L’agent choisit la tenue à partir de la météo, de vos occasions et de vos vêtements, puis le code vérifie sa réponse. Seuls des textes (type, couleur…) sont envoyés, jamais vos photos.</p>'+
-'<label class="f" style="margin-top:10px"><span>Adresse du relais</span><input type="text" id="agent-url" inputmode="url" autocomplete="off" placeholder="https://habille-moi-agent.….workers.dev" value="'+esc(A.url())+'"></label>'+
-'<label class="sw" style="margin-top:10px"><input type="checkbox" id="agent-on" role="switch"'+(A.isOn()?' checked':'')+'><span>Utiliser l’agent IA</span></label>'+
-'<div class="actions" style="margin-top:10px"><button class="btn" id="agent-test" type="button">Tester la connexion</button></div><p id="agent-msg" class="dl" aria-live="polite"></p>';
+'<label class="sw" style="margin-top:10px"><input type="checkbox" id="agent-on" role="switch"'+(A.isOn()?' checked':'')+'><span>Utiliser l’agent IA</span></label>'
+'';
 }
 function accText(){
 var a=window.accStats?accStats():{n:0,ok:0};
