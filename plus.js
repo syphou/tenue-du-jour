@@ -18,6 +18,7 @@ var a=window.accStats?accStats():{n:0,ok:0};
 var model='';try{model=localStorage.getItem('modele-v1')==='b16'}catch(e){}
 return '<p style="margin-top:12px">'+(a.n?'Reconnaissance : '+a.ok+' juste'+(a.ok>1?'s':'')+' du premier coup sur '+a.n+' ('+Math.round(100*a.ok/a.n)+' %).':'Pas encore de mesure : elle s’affichera après quelques vêtements ajoutés par photo.')+'</p>'+
 '<label class="sw" style="margin-top:10px"><input type="checkbox" id="model-b16" role="switch"'+(model?' checked':'')+'><span>Modèle plus précis (téléchargement d’environ 150 Mo, en Wi-Fi)</span></label>'+
+'<label class="f" style="margin-top:14px"><span>Fond des photos</span><select id="bg-mode"><option value="auto">Retirer un fond uni (rapide)</option><option value="ia">Retirer tout fond (IA, environ 45 Mo)</option><option value="off">Garder la photo d’origine</option></select></label><p class="note" style="margin-top:6px">L’option IA utilise un modèle à licence non commerciale : réservée aux tests.</p>'+
 '<p class="note" style="margin-top:6px">Chaque vêtement que vous corrigez améliore les photos suivantes.</p>';
 }
 function styleText(){
@@ -39,7 +40,7 @@ favs.push({ids:ids.slice()});try{localStorage.setItem(FK,JSON.stringify(favs))}c
 };
 window.renderPlus=function(){
 $('favs').innerHTML=favList();
-$('stats').innerHTML=stats()+accText();
+$('stats').innerHTML=stats()+accText();try{var bm=localStorage.getItem('fond-v1');if($('bg-mode'))$('bg-mode').value=(bm==='off'||bm==='ia')?bm:'auto'}catch(e){}
 };
 $('favs').addEventListener('click',function(e){
 var b=e.target.closest('[data-fd]');if(!b)return;
@@ -49,3 +50,4 @@ window.renderPlus();
 })();
 
 document.addEventListener('change',function(e){if(e.target&&e.target.id==='model-b16'&&window.setPreciseModel)setPreciseModel(e.target.checked)});
+document.addEventListener('change',function(e){if(e.target&&e.target.id==='bg-mode'&&window.setBgMode)setBgMode(e.target.value)});

@@ -23,3 +23,9 @@ Page principale : `index.html`. Aucune installation nécessaire.
 - La photo est comparée à plusieurs formulations par type ; les 3 types les plus probables sont proposés. Quand le doute est grand, le vêtement est marqué « à vérifier ».
 - Chaque vêtement confirmé ou corrigé garde les scores de sa photo : les photos suivantes qui lui ressemblent reçoivent un bonus pour ce type.
 - Un compteur de précision (onglet Plus) mesure les types justes du premier coup.
+
+## Détourage des photos
+
+- Niveau 1 (par défaut) : si le fond est uni, il est repéré depuis les bords de l'image et remplacé par un blanc cassé. Si le fond est chargé ou trop proche du vêtement, la photo d'origine est gardée.
+- Niveau 2 (option, onglet Plus) : modèle RMBG-1.4 chargé dans le navigateur. Son usage est non commercial (licence CC BY-NC) : réservé aux tests.
+- Un interrupteur « Fond retiré » permet de revenir à la photo d'origine avant d'enregistrer.
