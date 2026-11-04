@@ -2,7 +2,7 @@
    (pièces existantes, tenue complète, formalité, isolation). Seuls des textes décrivant les vêtements sont envoyés : jamais les photos. */
 (function(){
 var URL_KEY='agent-url-v1',ON_KEY='agent-on-v1';
-var DEFAULT_URL=''; /* adresse du relais Cloudflare : à renseigner une fois déployé (sinon réglable dans Plus) */
+var DEFAULT_URL='https://habille-moi-agent.syph0yahia96.workers.dev'; /* relais Cloudflare de l'appli (modifiable dans Plus) */
 var SYS=[
 'You are an expert personal stylist. Choose ONE complete outfit for the user from THEIR wardrobe (the "wardrobe" list in the JSON you receive).',
 'HARD RULES:',
