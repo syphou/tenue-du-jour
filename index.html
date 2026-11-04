@@ -94,6 +94,8 @@ nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surfa
 nav.bar div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .pick .pt{flex:1;min-width:0}.pbtns{display:flex;gap:4px;align-self:center}.ib{width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--mut);display:grid;place-items:center;cursor:pointer}.ib:disabled{opacity:.35;cursor:default}.ib.on{color:var(--acc);background:var(--acc-soft)}
 .chip.more{border-style:dashed;color:var(--mut)}.chip.more .ic{width:14px;height:14px}
+.tag.chk{background:var(--err-soft);color:var(--err)}
+.hl{margin:4px 0 0;color:var(--mut);font-size:14px}
 .why{margin-top:12px;font-size:14px}.why summary{cursor:pointer;color:var(--acc);font-weight:600;min-height:32px}.why p{margin:6px 0}
 .taste{background:var(--acc-soft);border-radius:12px;padding:12px;margin:8px 0}.taste p{margin:4px 0}
 .chk{list-style:none;margin:0;padding:0}.chk li{border-top:1px solid var(--line)}.chk label{display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer}.chk input{width:22px;height:22px;accent-color:var(--acc)}.chk .miss{padding:10px 0;color:var(--mut);font-size:14px}
@@ -161,6 +163,7 @@ a.btn{text-decoration:none}
 <div class="card" id="form" hidden>
 <h2 id="form-title">Vérifier et corriger</h2>
 <img id="prev" alt="Aperçu du vêtement" hidden>
+<div id="sugg-w" hidden><p class="note" id="sugg-t"></p><div class="chips" id="sugg"></div></div>
 <div class="two" style="margin-top:14px">
 <label class="f"><span>Type</span><select id="f-type"></select></label>
 <label class="f"><span>Couleur</span><input type="text" id="f-col" placeholder="ex. bleu marine"></label>
@@ -258,10 +261,11 @@ a.btn{text-decoration:none}
 </div>
 </nav>
 
+<script src="catalogue.js"></script>
+<script src="catalogue.js"></script>
 <script>
-var TYPES={'t-shirt':'haut','chemise':'haut','pull':'haut','pantalon':'bas','jean':'bas','short':'bas','jupe':'bas','robe':'robe','casquette':'acc','bonnet':'acc','écharpe':'acc','gants':'acc','lunettes de soleil':'acc','ceinture':'acc','veste':'ext','manteau':'ext','chaussures de ville':'pied','baskets':'pied','bottes':'pied'};
 var CAT={acc:'Accessoire',robe:'Robe',haut:'Haut',bas:'Bas',ext:'Veste ou manteau',pied:'Chaussures'};
-var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['robe','Robes'],['acc','Accessoires'],['never','Jamais portés']];
+var FILT=[['all','Tout'],['haut','Hauts'],['bas','Bas'],['ext','Vestes'],['pied','Chaussures'],['robe','Robes'],['acc','Accessoires'],['check','À vérifier'],['never','Jamais portés']];
 var ACTS=[['bureau','Bureau','au bureau'],['reunion','Réunion','en réunion'],['decontracte','Décontracté','en journée décontractée'],['sport','Sport','pour le sport'],['soiree','Soirée','pour une soirée'],['rdv','Rendez-vous','pour un rendez-vous'],['ceremonie','Cérémonie','pour une cérémonie'],['voyage','Voyage','pour un trajet ou un voyage']];
 var BASIC=5,actsMore=false;
 var WN=['','léger','moyen','chaud'];
@@ -289,7 +293,7 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;
 function icon(n){return '<svg class="ic"><use href="#i-'+n+'"/></svg>'}
 
 try{$('date').textContent=new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}catch(e){}
-$('f-type').innerHTML=Object.keys(TYPES).map(function(t){return '<option>'+t+'</option>'}).join('');
+$('f-type').innerHTML=TYPE_GROUPS.map(function(g){return '<optgroup label="'+g[1]+'">'+Object.keys(CATALOG).filter(function(t){return CATALOG[t].c===g[0]}).map(function(t){return '<option>'+t+'</option>'}).join('')+'</optgroup>'}).join('');
 
 function toast(msg,label,fn){
 $('toast-t').textContent=msg;var b=$('toast-b');
@@ -308,14 +312,14 @@ window.scrollTo(0,0);
 $('t1').onclick=function(){show(1)};$('t2').onclick=function(){show(2)};$('t3').onclick=function(){show(3)};$('t4').onclick=function(){show(4)};
 
 function renderFilters(){
-if(filter==='never'&&!worn.length)filter='all';
-$('filters').innerHTML=FILT.filter(function(f){return f[0]!=='never'||worn.length}).map(function(f){return '<button type="button" class="chip" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>'}).join('');
+if(filter==='never'&&!worn.length)filter='all';if(filter==='check'&&!items.some(function(i){return i.check}))filter='all';
+$('filters').innerHTML=FILT.filter(function(f){return f[0]==='check'?items.some(function(i){return i.check}):(f[0]!=='never'||worn.length)}).map(function(f){return '<button type="button" class="chip" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>'}).join('');
 }
 $('filters').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;filter=b.dataset.f;renderFilters();render()};
 
 function render(){
 $('count').textContent='Mes vêtements';
-var list=items.filter(function(i){return filter==='all'||(filter==='never'?!everWorn(i.id):TYPES[i.type]===filter)});
+var list=items.filter(function(i){return filter==='all'||(filter==='never'?!everWorn(i.id):filter==='check'?!!i.check:TYPES[i.type]===filter)});
 $('count2').textContent=items.length?(items.length+(items.length>1?' pièces':' pièce')):'';
 $('filters').hidden=!items.length;
 if(!items.length){$('list').innerHTML='<div class="empty">'+icon('hanger')+'<p>Votre garde-robe est vide. Prenez une première photo pour commencer.</p></div>';return}
@@ -324,13 +328,13 @@ $('list').innerHTML=list.map(function(it){
 return '<div class="it">'+(it.img?'<img src="'+it.img+'" alt="'+esc(it.type)+'">':'<div class="ph"></div>')+
 '<button class="edit" type="button" data-id="'+it.id+'" aria-label="Modifier : '+esc(it.type)+'">'+icon('pen')+'</button>'+
 '<button class="del" type="button" data-id="'+it.id+'" aria-label="Supprimer : '+esc(it.type)+'">'+icon('x')+'</button>'+
-'<div class="t"><b>'+esc(it.type)+'</b><span class="c">'+esc(it.col||'couleur non précisée')+'</span><div class="tags"><span class="tag">'+WN[it.warm]+'</span>'+(it.style==2?'<span class="tag">habillé</span>':'')+(it.rain?'<span class="tag">pluie</span>':'')+(worn.length&&!everWorn(it.id)?'<span class="tag">jamais porté</span>':'')+'</div></div></div>'}).join('');
+'<div class="t"><b>'+esc(it.type)+'</b><span class="c">'+esc(it.col||'couleur non précisée')+'</span><div class="tags"><span class="tag">'+WN[it.warm]+'</span>'+'<span class="tag">'+FLABEL[formality(it)].toLowerCase()+'</span>'+(it.rain?'<span class="tag">pluie</span>':'')+(it.check?'<span class="tag chk">à vérifier</span>':'')+(worn.length&&!everWorn(it.id)?'<span class="tag">jamais porté</span>':'')+'</div></div></div>'}).join('');
 }
 $('list').onclick=function(e){
 var ed=e.target.closest('.edit');
 if(ed){
 var it=items.filter(function(i){return String(i.id)===ed.dataset.id})[0];if(!it)return;
-openForm(it.img,{type:it.type,couleur:it.col,chaleur:it.warm,style:it.style,impermeable:it.rain},it.id);return;
+openForm(it.img,{type:it.type,couleur:it.col,chaleur:it.warm,style:it.style,impermeable:it.rain,flag:!!it.check},it.id);if(it.check){cur.pred=it.pred||null;cur.vec=it.vec||null}else{cur.vec=it.vec||null}return;
 }
 var b=e.target.closest('.del');if(!b)return;
 var idx=items.findIndex(function(i){return String(i.id)===b.dataset.id});if(idx<0)return;
@@ -339,8 +343,20 @@ items.splice(idx,1);save();render();
 toast('Vêtement supprimé','Annuler',function(){if(!lastDel)return;items.splice(lastDel.idx,0,lastDel.it);lastDel=null;save();render()});
 };
 
+var ACC_KEY='precision-v1';
+function addAcc(pred,final){try{var a=JSON.parse(localStorage.getItem(ACC_KEY)||'{}');a.n=(a.n||0)+1;if(pred===final)a.ok=(a.ok||0)+1;localStorage.setItem(ACC_KEY,JSON.stringify(a))}catch(e){}}
+window.accStats=function(){try{var a=JSON.parse(localStorage.getItem(ACC_KEY)||'{}');return{n:a.n||0,ok:a.ok||0}}catch(e){return{n:0,ok:0}}};
+function applyTypeDefaults(){var c=CATALOG[$('f-type').value];if(!c)return;$('f-warm').value=c.w;$('f-style').value=c.f>=3?2:1;$('f-rain').checked=!!c.rain}
+function renderSugg(d){
+var w=$('sugg-w');
+if(!d||!d.top||!d.top.length){w.hidden=true;return}
+w.hidden=false;
+$('sugg-t').textContent=(d.conf<0.55?'Je ne suis pas sûr : touchez le bon type. ':'Autres possibilités : ')+(d.learned?'(tient compte de vos vêtements précédents)':'');
+$('sugg').innerHTML=d.top.map(function(x){return '<button type="button" class="chip" data-ty="'+esc(x.type)+'" aria-pressed="'+(x.type===$('f-type').value)+'">'+esc(x.type)+' '+Math.round(x.score*100)+' %</button>'}).join('');
+}
+$('sugg').onclick=function(e){var b=e.target.closest('[data-ty]');if(!b)return;$('f-type').value=b.dataset.ty;applyTypeDefaults();Array.prototype.forEach.call($('sugg').children,function(c){c.setAttribute('aria-pressed',c===b)})};
 function openForm(img,d,id){
-cur={img:img,id:id||null};d=d||{};
+cur={img:img,id:id||null,pred:d&&d.ia?d.type:null,vec:d&&d.vec||null,flag:!!(d&&d.flag)};d=d||{};
 $('form-title').textContent=id?'Modifier le vêtement':'Vérifier et corriger';
 $('save').textContent=id?'Enregistrer les modifications':'Enregistrer';
 $('form').hidden=false;
@@ -350,9 +366,11 @@ $('f-col').value=d.couleur||'';
 $('f-warm').value=[1,2,3].indexOf(+d.chaleur)>-1?+d.chaleur:2;
 $('f-style').value=+d.style===2?2:1;
 $('f-rain').checked=!!d.impermeable;
+renderSugg(d.ia?d:null);
 $('form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 $('manual').onclick=function(){openForm(null,{})};
+$('f-type').onchange=function(){applyTypeDefaults();Array.prototype.forEach.call($('sugg').children,function(c){c.setAttribute('aria-pressed',c.dataset.ty===$('f-type').value)})};
 $('cancel').onclick=function(){$('form').hidden=true;cur=null};
 $('save').onclick=function(){
 if(!cur)return;
@@ -360,9 +378,9 @@ var vals={type:$('f-type').value,col:$('f-col').value.trim(),warm:+$('f-warm').v
 var editing=cur.id!==null&&cur.id!==undefined&&cur.id!=='';
 if(editing){
 var tgt=items.filter(function(i){return i.id===cur.id})[0];
-if(tgt){tgt.type=vals.type;tgt.col=vals.col;tgt.warm=vals.warm;tgt.style=vals.style;tgt.rain=vals.rain}
+if(tgt){if(cur.flag&&cur.pred)addAcc(cur.pred,vals.type);tgt.type=vals.type;tgt.col=vals.col;tgt.warm=vals.warm;tgt.style=vals.style;tgt.rain=vals.rain;delete tgt.check;delete tgt.pred}
 }else{
-items.unshift({id:Date.now(),img:cur.img,type:vals.type,col:vals.col,warm:vals.warm,style:vals.style,rain:vals.rain});
+var ni={id:Date.now(),img:cur.img,type:vals.type,col:vals.col,warm:vals.warm,style:vals.style,rain:vals.rain};if(cur.vec)ni.vec=cur.vec;if(cur.pred)addAcc(cur.pred,vals.type);items.unshift(ni);
 filter='all';
 }
 save();renderFilters();render();$('form').hidden=true;cur=null;
@@ -377,14 +395,16 @@ im.onload=function(){var k=Math.min(1,max/Math.max(im.width,im.height)),c=docume
 im.onerror=function(){rej(new Error('image'))};im.src=u})}
 /* Reconnaissance dans le navigateur (modèle CLIP gratuit, téléchargé une seule fois) */
 var CLIP_URL='https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
-var EN={'t-shirt':'a t-shirt','chemise':'a button-up shirt','pull':'a sweater','pantalon':'a pair of trousers','jean':'a pair of jeans','short':'a pair of shorts','jupe':'a skirt','veste':'a jacket','manteau':'a winter coat','chaussures de ville':'a pair of dress shoes','baskets':'a pair of sneakers','bottes':'a pair of boots','robe':'a dress','casquette':'a baseball cap','bonnet':'a knitted beanie hat','écharpe':'a scarf','gants':'a pair of gloves','lunettes de soleil':'a pair of sunglasses','ceinture':'a belt'};
-var WARM={'t-shirt':1,'short':1,'jupe':1,'chemise':2,'pantalon':2,'jean':2,'veste':2,'baskets':2,'chaussures de ville':2,'pull':3,'manteau':3,'bottes':3,'robe':1,'casquette':1,'lunettes de soleil':1,'ceinture':2,'bonnet':3,'écharpe':3,'gants':3};
-var DRESSY={'chemise':1,'chaussures de ville':1,'ceinture':1};
-var RAINPROOF={'manteau':1,'bottes':1};
-var clipP=null;
+var MODELS={b32:'Xenova/clip-vit-base-patch32',b16:'Xenova/clip-vit-base-patch16'};
+var WARM={},DRESSY={},RAINPROOF={};
+Object.keys(CATALOG).forEach(function(k){WARM[k]=CATALOG[k].w;DRESSY[k]=CATALOG[k].f>=3?1:0;RAINPROOF[k]=CATALOG[k].rain?1:0});
+var clipP={};
+function modelKey(){try{return localStorage.getItem('modele-v1')==='b16'?'b16':'b32'}catch(e){return'b32'}}
+window.setPreciseModel=function(on){try{localStorage.setItem('modele-v1',on?'b16':'b32')}catch(e){}};
 function loadClip(){
-if(!clipP)clipP=import(CLIP_URL).then(function(m){return m.pipeline('zero-shot-image-classification','Xenova/clip-vit-base-patch32')}).catch(function(e){clipP=null;throw e});
-return clipP;
+var k=modelKey();
+if(!clipP[k])clipP[k]=import(CLIP_URL).then(function(m){return m.pipeline('zero-shot-image-classification',MODELS[k])}).catch(function(e){clipP[k]=null;if(k==='b16'){window.setPreciseModel(false);return loadClip()}throw e});
+return clipP[k];
 }
 function colorName(r,g,b){
 r/=255;g/=255;b/=255;
@@ -396,7 +416,8 @@ if(l<0.13)return 'noir';
 if(s<0.14){return l>0.86?'blanc':l>0.6?'gris clair':l>0.3?'gris':'gris foncé'}
 if(h>=18&&h<50&&s<0.5&&l>0.62)return 'beige';
 if(h>=10&&h<45&&l<0.42)return 'marron';
-if(h<15||h>=345)return l>0.7?'rose':'rouge';
+if(h>=55&&h<95&&s<0.6&&l<0.5)return 'kaki';
+if(h<15||h>=345)return l>0.7?'rose':l<0.3?'bordeaux':'rouge';
 if(h<42)return 'orange';
 if(h<68)return 'jaune';
 if(h<165)return 'vert';
@@ -405,25 +426,61 @@ if(h<255)return l<0.33?'bleu marine':'bleu';
 if(h<290)return 'violet';
 return 'rose';
 }
+/* Couleur dominante du vêtement : on repère le fond (bords de l'image) et on l'ignore s'il est uni, puis on prend la teinte la plus fréquente */
 function dominantColor(url){return new Promise(function(res){
 var im=new Image();
 im.onload=function(){try{
-var c=document.createElement('canvas');c.width=c.height=32;var x=c.getContext('2d');
-x.drawImage(im,im.width*0.25,im.height*0.25,im.width*0.5,im.height*0.5,0,0,32,32);
-var p=x.getImageData(0,0,32,32).data,r=0,g=0,b=0,n=0;
-for(var i=0;i<p.length;i+=4){r+=p[i];g+=p[i+1];b+=p[i+2];n++}
-res(colorName(r/n,g/n,b/n))}catch(e){res('')}};
+var S=48,c=document.createElement('canvas');c.width=c.height=S;var x=c.getContext('2d',{willReadFrequently:true});
+x.drawImage(im,0,0,S,S);var p=x.getImageData(0,0,S,S).data;
+function px(i,j){var o=(j*S+i)*4;return[p[o],p[o+1],p[o+2]]}
+var ring=[],i,j;
+for(j=0;j<S;j++)for(i=0;i<S;i++)if(i<3||j<3||i>=S-3||j>=S-3)ring.push(px(i,j));
+function med(k){var a=ring.map(function(q){return q[k]}).sort(function(u,v){return u-v});return a[a.length>>1]}
+var bg=[med(0),med(1),med(2)],dev=0;
+ring.forEach(function(q){dev+=Math.abs(q[0]-bg[0])+Math.abs(q[1]-bg[1])+Math.abs(q[2]-bg[2])});dev/=ring.length*3;
+var uniform=dev<14;
+function dist(a,b){return Math.sqrt((a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1])+(a[2]-b[2])*(a[2]-b[2]))}
+var all=[],use=[];
+for(j=4;j<S-4;j++)for(i=4;i<S-4;i++){var q=px(i,j);all.push(q);if(!uniform||dist(q,bg)>=45)use.push(q)}
+if(use.length<all.length*0.06)use=all;
+var bins={},best=-1,bk=0;
+use.forEach(function(q){var k=(q[0]>>5)*64+(q[1]>>5)*8+(q[2]>>5);bins[k]=(bins[k]||0)+1;if(bins[k]>best){best=bins[k];bk=k}});
+var sum=[0,0,0],n=0;
+use.forEach(function(q){if(((q[0]>>5)*64+(q[1]>>5)*8+(q[2]>>5))===bk){sum[0]+=q[0];sum[1]+=q[1];sum[2]+=q[2];n++}});
+var m=[sum[0]/n,sum[1]/n,sum[2]/n],s2=[0,0,0],n2=0;
+use.forEach(function(q){if(dist(q,m)<60){s2[0]+=q[0];s2[1]+=q[1];s2[2]+=q[2];n2++}});
+res(colorName(s2[0]/n2,s2[1]/n2,s2[2]/n2))}catch(e){res('')}};
 im.onerror=function(){res('')};im.src=url;
 })}
+/* Apprentissage : les scores de reconnaissance de chaque vêtement validé servent de mémoire. Une nouvelle photo dont les scores ressemblent
+   à ceux d'un vêtement déjà confirmé (ou corrigé) reçoit un bonus pour ce type. */
+function cosine(a,b){var d=0,x=0,y=0;for(var i=0;i<a.length;i++){d+=a[i]*b[i];x+=a[i]*a[i];y+=b[i]*b[i]}return x&&y?d/Math.sqrt(x*y):0}
+function learnAdjust(sc,names){
+var v=names.map(function(n){return Math.sqrt(sc[n])}),nb=[];
+items.forEach(function(it){
+if(!Array.isArray(it.vec)||it.vec.length!==names.length||it.check||!CATALOG[it.type])return;
+var sim=cosine(v,it.vec.map(Math.sqrt));if(sim>0.85)nb.push({t:it.type,sim:sim});
+});
+nb.sort(function(a,b){return b.sim-a.sim});
+nb.slice(0,3).forEach(function(n){sc[n.t]+=1.2*(n.sim-0.85)/0.15});
+var tot=0;names.forEach(function(n){tot+=sc[n]});if(tot>0)names.forEach(function(n){sc[n]/=tot});
+return nb.length>0;
+}
 async function analyse(dataUrl){
 var out={couleur:await dominantColor(dataUrl)};
 try{
 var clip=await loadClip();
-var names=Object.keys(EN);
-var labels=names.map(function(n){return 'a photo of '+EN[n]});
-var r=await clip(dataUrl,labels);
-var top=r&&r[0]?names[labels.indexOf(r[0].label)]:null;
-if(top){out.type=top;out.chaleur=WARM[top];out.style=DRESSY[top]?2:1;out.impermeable=!!RAINPROOF[top];out.ia=true}
+var names=Object.keys(CATALOG),labels=[],owner=[];
+names.forEach(function(n){CATALOG[n].en.forEach(function(p){labels.push(p);owner.push(n)})});
+var r=await clip(dataUrl,labels,{hypothesis_template:'a product photo of {}.'});
+var sc={};names.forEach(function(n){sc[n]=0});
+r.forEach(function(x){var n=owner[labels.indexOf(x.label)];if(n)sc[n]+=x.score});
+out.vec=names.map(function(n){return Math.round(sc[n]*1000)/1000});
+out.learned=learnAdjust(sc,names);
+var rank=names.slice().sort(function(a,b){return sc[b]-sc[a]});
+out.top=rank.slice(0,3).map(function(n){return{type:n,score:sc[n]}});
+var top=rank[0];
+if(top){out.type=top;out.conf=sc[top];out.chaleur=WARM[top];out.style=DRESSY[top]?2:1;out.impermeable=!!RAINPROOF[top];out.ia=true}
 }catch(e){out.ia=false}
 return out;
 }
@@ -432,7 +489,7 @@ var batchBusy=false;
 async function onBatch(files){
 if(batchBusy)return;batchBusy=true;
 var list=Array.prototype.slice.call(files).filter(function(f){return /^image\//.test(f.type)}).slice(0,100);
-var ok=0,skip=0,stopped=false;
+var ok=0,skip=0,flagged=0,stopped=false;
 try{
 for(var i=0;i<list.length;i++){
 $('msg').textContent='Photo '+(i+1)+' sur '+list.length+' en cours… Au premier usage, le modèle se télécharge (environ 90 Mo). Gardez l’appli ouverte.';
@@ -440,14 +497,14 @@ try{
 var a=await shrink(list[i],640),t=await shrink(list[i],240);
 var d=await analyse(a.url);
 if(!d.ia||!TYPES[d.type]){if(!d.ia){stopped=true;break}skip++;continue}
-items.unshift({id:Date.now()+i,img:t.url,type:d.type,col:d.couleur||'',warm:[1,2,3].indexOf(+d.chaleur)>-1?+d.chaleur:2,style:+d.style===2?2:1,rain:!!d.impermeable});
+var ni={id:Date.now()+i,img:t.url,type:d.type,col:d.couleur||'',warm:[1,2,3].indexOf(+d.chaleur)>-1?+d.chaleur:2,style:+d.style===2?2:1,rain:!!d.impermeable,vec:d.vec,pred:d.type};if(d.conf<0.55){ni.check=true;flagged++}items.unshift(ni);
 ok++;if(ok%5===0){save();render()}
 }catch(err){skip++}
 }
 }finally{
 filter='all';save();renderFilters();render();batchBusy=false;
 }
-$('msg').textContent=stopped?'Reconnaissance indisponible (connexion ?) : '+ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':'')+'. Réessayez avec le réseau.':ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':'')+(skip?', '+skip+' photo'+(skip>1?'s':'')+' ignorée'+(skip>1?'s':''):'')+'. Vérifiez les fiches : touchez le crayon pour corriger.';
+$('msg').textContent=stopped?'Reconnaissance indisponible (connexion ?) : '+ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':'')+'. Réessayez avec le réseau.':ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':'')+(skip?', '+skip+' photo'+(skip>1?'s':'')+' ignorée'+(skip>1?'s':''):'')+(flagged?', dont '+flagged+' à vérifier (étiquette « à vérifier »)':'')+'. Touchez le crayon pour corriger.';
 toast(ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':''));
 }
 async function onPick(e){
@@ -459,7 +516,7 @@ try{
 var a=await shrink(f,640),t=await shrink(f,240);
 var d=await analyse(a.url);
 openForm(t.url,d);
-$('msg').textContent=d.ia?'Proposition faite à partir de la photo. Corrigez si besoin.':'Reconnaissance du type indisponible : choisissez-le à la main. La couleur est une estimation.';
+$('msg').textContent=d.ia?(d.conf<0.55?'Je ne suis pas sûr du type : choisissez parmi les suggestions.':'Proposition faite à partir de la photo. Corrigez si besoin.'):'Reconnaissance du type indisponible : choisissez-le à la main. La couleur est une estimation.';
 }catch(err){$('msg').textContent='Photo illisible. Essayez une autre image.'}
 e.target.value='';
 }
@@ -637,7 +694,8 @@ var eT=t<8?3:2;
 var tgt=target();
 var rh=wxFeel?wxFeel.rh:null,ws=wxFeel?wxFeel.ws:null;
 var at=ENGINE.feels(t,rh,ws);
-var ectx={t:t,at:at,need:ENGINE.needClo(at,onlySport?1.8:1.4),rain:rain,wind:ws||0,sT:sT,sport:onlySport,ref:tgt.date};
+var pc=ENGINE.progCtx(sel);
+var ectx={t:t,at:at,need:ENGINE.needClo(at,onlySport?1.8:1.4),rain:rain,wind:ws||0,sT:sT,fT:pc.fT,minF:pc.minF,maxF:pc.maxF,sport:onlySport,ref:tgt.date};
 var sig=[t,rain,sT,onlySport,tgt.date,when,sel.join(',')].join('|');
 if(sig!==lastSig){custom=null;swapSeen={};accIdx={};lastSig=sig}
 Object.keys(locks).forEach(function(r){if(!items.some(function(i){return i.id===locks[r]}))delete locks[r]});
@@ -663,14 +721,13 @@ var expl=pick?ENGINE.explain(custom&&scored?{clo:scored.clo,diff:scored.diff,col
 lastOut=out;
 var kit=[];
 if(hasSport&&!onlySport){
-var kctx={t:t,rain:rain,wT:Math.max(1,wT-1),eT:eT,sT:1,sport:true,ref:tgt.date};
-['haut','bas','pied'].forEach(function(c){var ks=cands(c,kctx);if(ks.length){if(ks.length>1)canAlt=true;kit.push({c:c,it:ks[variant%ks.length].it})}});
+kit=ENGINE.sportKit(ectx,variant);kit.forEach(function(k){if(k.n>1)canAlt=true});
 }
 var labs=ACTS.filter(function(a){return sel.indexOf(a[0])>-1}).map(function(a){return a[2]});
 var wl=WHENS.filter(function(w){return w[0]===when})[0][2];
-var h='<h2>Pour '+wl+', '+t+' °C, '+joinFr(labs)+(rain?', sous la pluie':'')+'</h2><div style="margin-top:8px">';
+var h='<h2>Pour '+wl+', '+t+' °C, '+joinFr(labs)+(rain?', sous la pluie':'')+'</h2>'+(pick?'<p class="hl">'+esc(ENGINE.headline(custom?{parts:coreParts,color:scored.color}:pick,ectx))+'</p>':'')+'<div style="margin-top:8px">';
 out.forEach(function(o){
-var why=o.c==='ext'?(rain&&o.it.rain?'Pluie : pièce résistante.':at<8?'Il fait froid : couche extérieure chaude.':'Couche extérieure contre la fraîcheur et le vent.'):o.c==='couche'?'Couche chaude sous la veste, facile à retirer.':o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&(o.it.rain||o.it.type==='bottes')?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='acc'?o.why:o.c==='robe'?'Une pièce, déjà assortie.':o.c==='haut'?'Isolation adaptée à '+Math.round(at)+' ° ressentis.':'Assorti au haut et à votre programme.';
+var why=o.c==='ext'?(rain&&o.it.rain?'Pluie : pièce résistante.':at<8?'Il fait froid : couche extérieure chaude.':'Couche extérieure contre la fraîcheur et le vent.'):o.c==='couche'?'Couche chaude sous la veste, facile à retirer.':o.c==='pied'?(onlySport?'Sport : chaussures confortables.':rain&&(o.it.rain||o.it.type==='bottes')?'Pluie : chaussures qui résistent.':'Adaptées à votre programme.'):o.c==='acc'?o.why:o.c==='robe'?'Une pièce, déjà assortie.':o.c==='haut'?FLABEL[formality(o.it)]+' · isolation adaptée à '+Math.round(at)+' ° ressentis.':FLABEL[formality(o.it)]+' · assorti à votre programme.';
 var isAcc=o.c==='acc',locked=!isAcc&&locks[o.role]===o.it.id,nAlt=isAcc?o.count:roleCount(o.role);
 var btns='<div class="pbtns">'+(nAlt>1?'<button type="button" class="ib" data-sw="'+o.role+'" aria-label="Changer cette pièce"'+(locked?' disabled':'')+'>'+icon('swap')+'</button>':'')+(isAcc?'':'<button type="button" class="ib'+(locked?' on':'')+'" data-lk="'+o.role+'" aria-pressed="'+locked+'" aria-label="'+(locked?'Déverrouiller':'Garder')+' cette pièce">'+icon(locked?'lock':'unlock')+'</button>')+'</div>';
 h+='<div class="pick">'+(o.it.img?'<img src="'+o.it.img+'" alt="">':'<div class="ph"></div>')+'<div class="pt"><span class="k">'+CAT[o.c]+'</span><b>'+esc(o.it.type)+(o.it.col?', '+esc(o.it.col):'')+'</b><p>'+why+'</p></div>'+btns+'</div>';
@@ -707,9 +764,9 @@ res.innerHTML=h;
 var IMG_OK=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/;
 function cleanItem(x){
 if(!x||typeof x!=='object')return null;
-var id=Number(x.id);if(!isFinite(id)||!TYPES[x.type])return null;
+var id=Number(x.id);if(!isFinite(id)||!Object.prototype.hasOwnProperty.call(TYPES,x.type))return null;
 var warm=Math.round(Number(x.warm)),style=Math.round(Number(x.style));
-return{id:id,img:(typeof x.img==='string'&&x.img.length<400000&&IMG_OK.test(x.img))?x.img:null,type:x.type,col:typeof x.col==='string'?x.col.slice(0,40):'',warm:[1,2,3].indexOf(warm)>-1?warm:2,style:style===2?2:1,rain:!!x.rain};
+return{id:id,img:(typeof x.img==='string'&&x.img.length<400000&&IMG_OK.test(x.img))?x.img:null,type:x.type,col:typeof x.col==='string'?x.col.slice(0,40):'',warm:[1,2,3].indexOf(warm)>-1?warm:2,style:style===2?2:1,rain:!!x.rain,vec:(Array.isArray(x.vec)&&x.vec.length<=80&&x.vec.every(function(n){return typeof n==='number'&&n>=0&&n<=1}))?x.vec:undefined,check:x.check===true?true:undefined,pred:(typeof x.pred==='string'&&Object.prototype.hasOwnProperty.call(TYPES,x.pred))?x.pred:undefined};
 }
 async function exportData(){
 var name='garde-robe-'+today()+'.json';

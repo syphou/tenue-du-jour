@@ -36,17 +36,19 @@ var n=nDays(),t=S.temps||{min:12,max:20},mean=(t.min+t.max)/2;
 var wT=mean>=24?1:mean>=14?2:3,used={},G=[];
 function add(label,types,count,w){if(count<1)return;var r=pick(types,count,w==null?wT:w,used);G.push({label:label,got:r.got,miss:r.miss,need:count,types:types})}
 var tops=Math.min(8,Math.ceil(n*0.8));
-add('Hauts légers',['t-shirt','chemise'],tops,1);
-if(mean<18)add('Hauts chauds',['pull'],mean<8?2:1,3);
+add('Hauts légers',has('business')?['chemise','polo','chemisier','t-shirt']:['t-shirt','polo','débardeur','chemise','chemisier'],tops,1);
+if(mean<18)add('Hauts chauds',['pull','gilet','sweat','sweat à capuche'],mean<8?2:1,3);
 var bas=Math.min(4,Math.ceil(n/3)+(has('business')?1:0));
-add('Bas',mean>=24?['short','jupe','jean','pantalon']:['jean','pantalon','jupe'],bas,2);
+add('Bas',mean>=24?['short','jupe','chino','jean','pantalon']:['jean','pantalon','chino','pantalon cargo','jupe'],bas,2);
 if(mean>=22&&(has('plage')||has('sport')))add('Shorts',['short'],1,1);
-if(t.min<8)add('Manteau',['manteau'],1,3);
-else if(t.min<17)add('Veste',['veste'],1,2);
-var shoes=['baskets'];
-add('Chaussures confort',shoes,1,2);
-if(has('business')||has('soiree'))add('Chaussures habillées',['chaussures de ville'],1,2);
-if(has('rando')||t.min<3)add('Chaussures robustes',['bottes'],1,3);
+if(has('sport')){add('Sport : haut',['haut de sport','maillot de sport'],1,1);add('Sport : bas',['short de sport','jogging','legging'],1,1)}
+if(t.min<8)add('Manteau',['manteau','doudoune','parka'],1,3);
+else if(t.min<17)add('Veste',['veste','blouson','veste en jean','polaire','blazer','trench'],1,2);
+if(S.rain&&t.min>=8)add('Contre la pluie',['coupe-vent','trench','parka','manteau'],1,2);
+add('Chaussures confort',['baskets','mocassins','sandales'],1,2);
+if(has('sport'))add('Chaussures de sport',['chaussures de sport'],1,2);
+if(has('business')||has('soiree'))add('Chaussures habillées',['chaussures de ville','mocassins','talons'],1,2);
+if(has('rando')||t.min<3)add('Chaussures robustes',['bottes','bottines'],1,3);
 return G;
 }
 function essentials(){

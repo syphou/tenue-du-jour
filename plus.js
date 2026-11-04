@@ -13,6 +13,13 @@ var nw=items.filter(function(i){return !everWorn(i.id)}).length;
 h+='<p class="note" style="margin-top:6px">'+(worn.length?nw+' jamais porté'+(nw>1?'s':'')+' · '+worn.length+' tenue'+(worn.length>1?'s':'')+' enregistrée'+(worn.length>1?'s':'')+'.':'Enregistrez vos tenues portées pour suivre ce que vous mettez vraiment.')+'</p>';
 return h;
 }
+function accText(){
+var a=window.accStats?accStats():{n:0,ok:0};
+var model='';try{model=localStorage.getItem('modele-v1')==='b16'}catch(e){}
+return '<p style="margin-top:12px">'+(a.n?'Reconnaissance : '+a.ok+' juste'+(a.ok>1?'s':'')+' du premier coup sur '+a.n+' ('+Math.round(100*a.ok/a.n)+' %).':'Pas encore de mesure : elle s’affichera après quelques vêtements ajoutés par photo.')+'</p>'+
+'<label class="sw" style="margin-top:10px"><input type="checkbox" id="model-b16" role="switch"'+(model?' checked':'')+'><span>Modèle plus précis (téléchargement d’environ 150 Mo, en Wi-Fi)</span></label>'+
+'<p class="note" style="margin-top:6px">Chaque vêtement que vous corrigez améliore les photos suivantes.</p>';
+}
 function styleText(){
 var m=window.ENGINE&&ENGINE.summary();if(!m)return '';
 return '<div class="taste"><b>Votre style</b><p>D’après '+m.n+' favori'+(m.n>1?'s':'')+(m.cols.length?', vous aimez : '+esc(m.cols.join(', ')):'')+(m.types.length?'. Pièces préférées : '+esc(m.types.join(', ')):'')+(m.pair?'. Association récurrente : '+esc(m.pair.replace('+',' et ')):'')+'.</p><p class="note">Vos propositions s’en rapprochent, sans jamais sacrifier le confort face à la météo.</p></div>';
@@ -32,7 +39,7 @@ favs.push({ids:ids.slice()});try{localStorage.setItem(FK,JSON.stringify(favs))}c
 };
 window.renderPlus=function(){
 $('favs').innerHTML=favList();
-$('stats').innerHTML=stats();
+$('stats').innerHTML=stats()+accText();
 };
 $('favs').addEventListener('click',function(e){
 var b=e.target.closest('[data-fd]');if(!b)return;
@@ -40,3 +47,5 @@ favs.splice(+b.dataset.fd,1);try{localStorage.setItem(FK,JSON.stringify(favs))}c
 window.renderPlus();
 });
 })();
+
+document.addEventListener('change',function(e){if(e.target&&e.target.id==='model-b16'&&window.setPreciseModel)setPreciseModel(e.target.checked)});

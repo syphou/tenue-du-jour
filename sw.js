@@ -1,7 +1,7 @@
 /* Service worker : l'appli s'ouvre sans réseau. La météo et le modèle de
    reconnaissance ont besoin d'Internet ; tout le reste fonctionne hors ligne. */
-var VERSION = 'tdj-v8';
-var SHELL = ['./', 'index.html','moteur.js','valise.js','plus.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+var VERSION = 'tdj-v10';
+var SHELL = ['./', 'index.html','catalogue.js','moteur.js','valise.js','plus.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -27,7 +27,7 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(
       fetch(req).then(function (res) {
         var copy = res.clone();
-        caches.open(VERSION).then(function (c) { c.put('index.html', copy); });
+        caches.open(VERSION).then(function (c) { c.put('index.html','catalogue.js', copy); });
         return res;
       }).catch(function () {
         return caches.match('index.html').then(function (r) { return r || caches.match('./'); });

@@ -9,12 +9,9 @@
      analogues ou complémentaires atténuées, pas de noir avec du marron, pas plus de deux couleurs vives.
    Ce sont des règles de bon sens appuyées sur ces références, pas une étude sur le goût : le style reste personnel. */
 (function(){
-var CLO={ /* [léger, moyen, chaud] */
-'t-shirt':[.08,.08,.10],'chemise':[.17,.25,.34],'pull':[.20,.30,.40],'pantalon':[.15,.19,.24],'jean':[.19,.22,.26],
-'short':[.06,.07,.08],'jupe':[.14,.18,.23],'robe':[.23,.33,.47],'veste':[.30,.40,.48],'manteau':[.60,.75,.90],
-'chaussures de ville':[.02,.02,.03],'baskets':[.02,.02,.03],'bottes':[.08,.10,.12]};
+/* Isolation : voir catalogue.js */
 var BASE=0.10; /* sous-vêtements et couche d'air */
-function clo(it){var a=CLO[it.type]||[.1,.1,.1];return a[Math.max(0,Math.min(2,(it.warm||2)-1))]}
+function clo(it){var a=(window.CATALOG&&CATALOG[it.type]&&CATALOG[it.type].clo)||[.1,.1,.1];return a[Math.max(0,Math.min(2,(it.warm||2)-1))]}
 
 /* Température ressentie à l'ombre, en °C (t en °C, rh en %, ws en km/h) */
 function feels(t,rh,wsKmh){
@@ -93,6 +90,20 @@ var pr=top(P.pair,1);
 return{n:P.n,cols:cols,types:types,pair:pr[0]||null};
 }
 
+/* --- programmes : formalité visée (t) et formalité minimale acceptée (min) ---
+   1 sport, 2 décontracté, 3 soigné, 4 habillé. Au bureau, jamais de pièce de sport ; en réunion et en cérémonie, rien de décontracté. */
+var PROG={bureau:{t:3,min:2},reunion:{t:3.7,min:3},decontracte:{t:2,min:1},soiree:{t:3.3,min:2},rdv:{t:3,min:2},ceremonie:{t:4,min:3},voyage:{t:2,min:1},sport:{t:1,min:1}};
+function progCtx(keys){
+var base=keys.filter(function(k){return k!=='sport'});
+if(!base.length)return{fT:1,minF:1,maxF:2,sportOnly:true};
+return{fT:Math.max.apply(null,base.map(function(k){return PROG[k]?PROG[k].t:2})),minF:Math.max.apply(null,base.map(function(k){return PROG[k]?PROG[k].min:1})),maxF:4,sportOnly:false};
+}
+function ctxF(ctx){return ctx.fT!=null?ctx.fT:(ctx.sT>=2?3.5:2)}
+function allowed(it,ctx){
+if(ctx.minF==null)return true;
+var f=formality(it);return f>=ctx.minF&&f<=ctx.maxF;
+}
+
 /* --- notation d'une tenue --- */
 function score(parts,ctx){
 var tot=BASE,why=[],s=0,i;
@@ -101,7 +112,9 @@ parts.forEach(function(it){tot+=clo(it)});
 var diff=tot-ctx.need;
 s-= diff<0 ? -diff*(ctx.at>=26?3:12) : diff*(ctx.at>=26?16:7);
 /* Formalité */
-parts.forEach(function(it){var w=(ctx.sport&&(TYPES[it.type]==='haut'||TYPES[it.type]==='bas'||TYPES[it.type]==='pied'))?0.3:1.2;s-=Math.abs((it.style||1)-ctx.sT)*w});
+var fT=ctxF(ctx),fs=[];
+parts.forEach(function(it){var f=formality(it),dv=f-fT;s-=dv<0?-dv*2.2:dv*(ctx.sport?2.5:0.9);if(TYPES[it.type]!=='acc')fs.push(f)});
+if(fs.length>1){var sp=Math.max.apply(null,fs)-Math.min.apply(null,fs);if(sp>1)s-=1.2*(sp-1)}
 /* Pluie, vent */
 var ext=parts.filter(function(p){return TYPES[p.type]==='ext'})[0];
 var shoes=parts.filter(function(p){return TYPES[p.type]==='pied'})[0];
@@ -110,7 +123,7 @@ else if(shoes&&shoes.type==='bottes'&&ctx.at>=5)s-=2.5;
 if(ctx.wind>=30&&ext)s+=1.5;
 /* Sport */
 if(ctx.sport&&shoes&&shoes.type==='baskets')s+=4;
-if(!ctx.sport&&ctx.sT>=2&&shoes&&shoes.type==='baskets')s-=1.5;
+if(!ctx.sport&&fT>=3&&shoes&&shoes.type==='baskets')s-=1.5;
 /* Chaleur : pas de short sous 22 °C ressentis, ni de manteau au-dessus de 15 */
 parts.forEach(function(it){if(it.type==='short'&&ctx.at<22&&!ctx.sport)s-=8;if(it.type==='manteau'&&ctx.at>15)s-=6;if(it.type==='pull'&&ctx.at>24)s-=6});
 /* Couleurs */
@@ -126,7 +139,9 @@ return{s:s,clo:tot,diff:diff,color:cs,taste:ts};
 function propose(ctx){
 ctx.profile=profile();
 var by={haut:[],bas:[],ext:[],pied:[],robe:[]};
-items.forEach(function(it){if(it.type==='robe')by.robe.push(it);else by[TYPES[it.type]]&&by[TYPES[it.type]].push(it)});
+var rel=[];ctx.relaxed=rel;
+items.forEach(function(it){var c=TYPES[it.type];if(by[c])by[c].push(it)});
+['haut','bas','pied','robe','ext'].forEach(function(c){var f=by[c].filter(function(i){return allowed(i,ctx)});if(f.length||c==='ext'||c==='robe')by[c]=f;else if(by[c].length)rel.push(c)});
 var tops=by.haut,pulls=tops.filter(function(i){return i.type==='pull'}),base=tops.filter(function(i){return i.type!=='pull'});
 var cap=function(a,n){if(a.length<=n)return a;return a.slice().sort(function(x,y){return Math.abs((x.style||1)-ctx.sT)-Math.abs((y.style||1)-ctx.sT)}).slice(0,n)};
 if(base.length*Math.max(1,by.bas.length)*(1+pulls.length)*(1+by.ext.length)*Math.max(1,by.pied.length)>30000){base=cap(base,12);by.bas=cap(by.bas,10);pulls=cap(pulls,4);by.ext=cap(by.ext,4);by.pied=cap(by.pied,5)}
@@ -194,7 +209,7 @@ var ACC_RULES=[
 ['gants',function(c){return c.at<=2}],
 ['casquette',function(c){return c.at>=20&&!c.rain&&!c.evening}],
 ['lunettes de soleil',function(c){return c.at>=16&&!c.rain&&!c.evening}],
-['ceinture',function(c,p){return !c.sport&&c.sT>=2&&p.some(function(x){return x.type==='pantalon'||x.type==='jean'})}]
+['ceinture',function(c,p){return !c.sport&&ctxF(c)>=3&&p.some(function(x){return x.type==='pantalon'||x.type==='jean'})}]
 ];
 var ACC_WHY={bonnet:'Il fait très froid : protège la tête.','écharpe':'Froid ou vent : garde le cou au chaud.',gants:'Mains au chaud par grand froid.',casquette:'Journée chaude et sèche : protège du soleil.','lunettes de soleil':'Journée claire et sèche.',ceinture:'Complète une tenue habillée.'};
 function accessories(parts,ctx,idx){
@@ -210,16 +225,38 @@ out.push({type:r[0],it:owned[(idx[r[0]]||0)%owned.length],count:owned.length,why
 return out;
 }
 
+/* Tenue de sport à emporter : pièces de sport en priorité */
+function sportKit(ctx,variant){
+var wT=Math.max(1,(ctx.at>=24?1:ctx.at>=16?1.5:ctx.at>=8?2.5:3)-1),out=[];
+['haut','bas','pied'].forEach(function(c){
+var l=items.filter(function(i){return TYPES[i.type]===c&&formality(i)<=2});
+if(!l.length)return;
+l.sort(function(a,b){var fa=formality(a)===1?0:1,fb=formality(b)===1?0:1;return fa-fb||Math.abs(a.warm-wT)-Math.abs(b.warm-wT)});
+var top=l.filter(function(i){return formality(i)===formality(l[0])});
+out.push({c:c,it:top[(variant||0)%top.length],n:top.length});
+});
+return out;
+}
+/* Ligne de résumé : style, ressenti, pluie, couleurs */
+function headline(o,ctx){
+var fs=o.parts.filter(function(p){return TYPES[p.type]!=='acc'}).map(formality),avg=fs.length?Math.round(fs.reduce(function(a,b){return a+b},0)/fs.length):2;
+var bits=[FLABEL[avg]||'Décontracté','ressenti '+Math.round(ctx.at)+' °C'];
+if(ctx.wind>=25)bits.push('vent '+Math.round(ctx.wind)+' km/h');
+if(ctx.rain)bits.push('pluie');
+var cw=o.color&&o.color.why&&o.color.why[0];if(cw)bits.push(cw);
+return bits.join(' · ');
+}
 /* Explications lisibles, pièce par pièce */
 function explain(o,ctx){
 var tot=o.clo.toFixed(2).replace('.',',');
 var need=ctx.need.toFixed(2).replace('.',',');
 var lines=[];
+if(ctx.relaxed&&ctx.relaxed.length)lines.push('Peu de pièces adaptées à ce programme dans votre garde-robe ('+ctx.relaxed.join(', ')+') : j’ai pris les plus proches.');
 lines.push('Ressenti '+Math.round(ctx.at)+' °C'+(ctx.wind>=20?' (vent '+Math.round(ctx.wind)+' km/h)':'')+' : '+need+' clo visés, tenue à '+tot+' clo.');
 if(o.diff<-0.3)lines.push('Attention : votre garde-robe ne couvre pas tout à fait ce froid (il manque environ '+Math.abs(o.diff).toFixed(1).replace('.',',')+' clo). Une pièce plus chaude dans votre garde-robe aiderait.');
 if(o.taste&&o.taste.s>0.5)lines.push('Dans votre style : proche de vos favoris'+(o.taste.hit.length?' ('+o.taste.hit.map(function(i){return i.type+(i.col?' '+i.col:'')}).join(', ')+')':'')+'.');
 if(o.color.why.length)lines.push('Couleurs : '+o.color.why.join(', ')+'.');
 return lines;
 }
-window.ENGINE={roleOf:roleOf,alternatives:alternatives,accessories:accessories,clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
+window.ENGINE={progCtx:progCtx,sportKit:sportKit,headline:headline,PROG:PROG,roleOf:roleOf,alternatives:alternatives,accessories:accessories,clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
 })();

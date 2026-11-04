@@ -15,3 +15,11 @@ Page principale : `index.html`. Aucune installation nécessaire.
 - **Température ressentie** : formule de Steadman (Bureau of Meteorology australien) avec vent et humidité d'Open-Meteo.
 - **Couleurs** : base neutre, une seule couleur d'accent, pas de noir avec du marron, pas plus de deux couleurs vives.
 - **Autres critères** : pluie, vent, formalité du programme, rotation (rien de ce qui a été porté hier ou avant-hier).
+
+## Reconnaissance et apprentissage
+
+- Environ 50 types de vêtements (maillot de sport, jogging, polo, blazer, doudoune...), chacun avec une formalité (sport, décontracté, soigné, habillé), une chaleur et une isolation (catalogue.js).
+- Au bureau, jamais de pièce de sport ; en réunion ou en cérémonie, rien de décontracté.
+- La photo est comparée à plusieurs formulations par type ; les 3 types les plus probables sont proposés. Quand le doute est grand, le vêtement est marqué « à vérifier ».
+- Chaque vêtement confirmé ou corrigé garde les scores de sa photo : les photos suivantes qui lui ressemblent reçoivent un bonus pour ce type.
+- Un compteur de précision (onglet Plus) mesure les types justes du premier coup.
