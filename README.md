@@ -29,3 +29,9 @@ Page principale : `index.html`. Aucune installation nécessaire.
 - Niveau 1 (par défaut) : si le fond est uni, il est repéré depuis les bords de l'image et remplacé par un blanc cassé. Si le fond est chargé ou trop proche du vêtement, la photo d'origine est gardée.
 - Niveau 2 (option, onglet Plus) : modèle RMBG-1.4 chargé dans le navigateur. Son usage est non commercial (licence CC BY-NC) : réservé aux tests.
 - Un interrupteur « Fond retiré » permet de revenir à la photo d'origine avant d'enregistrer.
+
+## Agent IA styliste
+
+- Un relais Cloudflare Workers AI gratuit (`agent/worker.js`, guide dans `agent/GUIDE.md`) appelle un modèle de langage.
+- L'appli envoie la situation complète (météo ressentie, occasions, formalité, vêtements autorisés avec leur isolation, favoris, tenues déjà proposées). Seuls des textes sont envoyés.
+- Le code contrôle chaque réponse : pièces existantes, tenue complète, formalité, isolation, pièces verrouillées. Si la réponse est invalide ou si le relais est indisponible, les règles locales prennent le relais.

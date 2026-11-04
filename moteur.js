@@ -258,5 +258,64 @@ if(o.taste&&o.taste.s>0.5)lines.push('Dans votre style : proche de vos favoris'+
 if(o.color.why.length)lines.push('Couleurs : '+o.color.why.join(', ')+'.');
 return lines;
 }
-window.ENGINE={progCtx:progCtx,sportKit:sportKit,headline:headline,PROG:PROG,roleOf:roleOf,alternatives:alternatives,accessories:accessories,clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
+
+/* --- agent IA : contexte envoyé et contrôle de la réponse --- */
+var FEN=['','sport','casual','smart','dressy'],WEN=['','light','medium','warm'];
+function describe(it,ctx){
+var w=window.lastWornDays?lastWornDays(it.id,ctx.ref):null;
+return{id:it.id,type:it.type,category:TYPES[it.type],color:it.col||'',warmth:WEN[it.warm||2],formality:FEN[formality(it)],clo:+clo(it).toFixed(2),rain_resistant:!!it.rain,worn_days_ago:(w!==null&&w<=7)?w:null};
+}
+function agentContext(ctx,o){
+o=o||{};ctx.profile=ctx.profile||profile();
+var wardrobe=items.filter(function(i){return TYPES[i.type]==='acc'||allowed(i,ctx)}).map(function(i){return describe(i,ctx)});
+var cands=propose(ctx).slice(0,3).map(function(c){return c.parts.map(function(p){return p.id})});
+var favs=favsList().slice(-6).map(function(f){return f.ids});
+return{
+moment:o.whenLabel||'today',date:ctx.ref,temperature_c:Math.round(ctx.t),feels_like_c:Math.round(ctx.at),wind_kmh:Math.round(ctx.wind||0),rain:!!ctx.rain,evening:!!ctx.evening,
+occasions:o.progLabels||[],target_formality:+ctxF(ctx).toFixed(1),min_formality:ctx.minF||1,
+target_insulation_clo:+ctx.need.toFixed(2),insulation_tolerance:'-0.4 to +0.6',base_insulation_clo:BASE,
+wardrobe:wardrobe,locked_ids:ctx.locks?Object.keys(ctx.locks).map(function(k){return ctx.locks[k]}):[],
+already_proposed:o.avoid||[],favourite_outfits:favs,rule_based_suggestions:cands
+};
+}
+/* Contrôle strict de la réponse de l'agent : jamais de pièce inventée, tenue complète, formalité, isolation. */
+function validateAgent(res,ctx){
+function bad(r){return{ok:false,reason:r}}
+if(!res||typeof res!=='object'||!Array.isArray(res.items))return bad('format');
+var byId={};items.forEach(function(i){byId[i.id]=i});
+var ids=res.items.map(Number);
+if(!ids.length||ids.length>5||ids.some(function(n){return !isFinite(n)})||ids.filter(function(n,i){return ids.indexOf(n)===i}).length!==ids.length)return bad('ids');
+var parts=ids.map(function(n){return byId[n]});
+if(parts.some(function(p){return !p}))return bad('inconnu');
+var c={haut:[],bas:[],ext:[],pied:[],robe:[]};
+for(var i=0;i<parts.length;i++){var k=TYPES[parts[i].type];if(!c[k])return bad('categorie');c[k].push(parts[i])}
+var tops=c.haut.filter(function(p){return p.type!=='pull'}),pulls=c.haut.filter(function(p){return p.type==='pull'});
+if(c.robe.length>1||tops.length>1||pulls.length>1||c.ext.length>1||c.pied.length>1)return bad('doublon');
+var hasShoes=items.some(function(p){return TYPES[p.type]==='pied'});
+if(hasShoes&&c.pied.length!==1)return bad('chaussures');
+if(c.robe.length){if(c.bas.length||tops.length)return bad('robe')}
+else{
+if(!c.bas.length&&items.some(function(p){return TYPES[p.type]==='bas'}))return bad('bas');
+if(c.bas.length>1)return bad('doublon');
+if(!tops.length&&!pulls.length)return bad('haut');
+if(pulls.length&&!tops.length&&c.haut.length>1)return bad('haut');
+}
+for(i=0;i<parts.length;i++)if(!allowed(parts[i],ctx))return bad('formalite');
+var lockIds=ctx.locks?Object.keys(ctx.locks).map(function(k){return ctx.locks[k]}):[];
+if(lockIds.some(function(id){return ids.indexOf(id)<0}))return bad('verrou');
+var acc=[];
+if(res.accessories!=null){
+if(!Array.isArray(res.accessories)||res.accessories.length>3)return bad('accessoires');
+var types={};
+for(i=0;i<res.accessories.length;i++){var a=byId[Number(res.accessories[i])];if(!a||TYPES[a.type]!=='acc'||types[a.type])return bad('accessoire');types[a.type]=1;acc.push(a)}
+}
+var sc=score(parts,ctx);
+var best=propose(ctx)[0];var floor=best?Math.min(-0.6,best.diff-0.2):-0.6;
+if(sc.diff<floor||sc.diff>0.9)return bad('thermique');
+var why=typeof res.why==='string'?res.why.replace(/\s+/g,' ').trim().slice(0,420):'';
+var tip=typeof res.tip==='string'?res.tip.replace(/\s+/g,' ').trim().slice(0,220):'';
+return{ok:true,parts:parts,acc:acc,why:why,tip:tip,clo:sc.clo,diff:sc.diff,color:sc.color,taste:sc.taste};
+}
+
+window.ENGINE={agentContext:agentContext,validateAgent:validateAgent,progCtx:progCtx,sportKit:sportKit,headline:headline,PROG:PROG,roleOf:roleOf,alternatives:alternatives,accessories:accessories,clo:clo,feels:feels,needClo:needClo,colorScore:colorScore,propose:propose,explain:explain,score:score,summary:summary};
 })();
