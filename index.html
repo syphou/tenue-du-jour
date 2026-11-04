@@ -151,7 +151,7 @@ a.btn{text-decoration:none}
 <div class="add">
 <input type="file" id="file" accept="image/*" capture="environment" class="vh">
 <label for="file" class="btn pri wide"><svg class="ic"><use href="#i-cam"/></svg>Prendre une photo</label>
-<input type="file" id="gallery" accept="image/*" class="vh">
+<input type="file" id="gallery" accept="image/*" multiple class="vh">
 <label for="gallery" class="btn"><svg class="ic"><use href="#i-img"/></svg>Galerie</label>
 <button class="btn" id="manual" type="button"><svg class="ic"><use href="#i-pen"/></svg>Sans photo</button>
 </div>
@@ -427,8 +427,33 @@ if(top){out.type=top;out.chaleur=WARM[top];out.style=DRESSY[top]?2:1;out.imperme
 }catch(e){out.ia=false}
 return out;
 }
+/* Plusieurs photos d'un coup : reconnaissance une par une, enregistrement automatique, à corriger ensuite */
+var batchBusy=false;
+async function onBatch(files){
+if(batchBusy)return;batchBusy=true;
+var list=Array.prototype.slice.call(files).filter(function(f){return /^image\//.test(f.type)}).slice(0,100);
+var ok=0,skip=0,stopped=false;
+try{
+for(var i=0;i<list.length;i++){
+$('msg').textContent='Photo '+(i+1)+' sur '+list.length+' en cours… Au premier usage, le modèle se télécharge (environ 90 Mo). Gardez l’appli ouverte.';
+try{
+var a=await shrink(list[i],640),t=await shrink(list[i],240);
+var d=await analyse(a.url);
+if(!d.ia||!TYPES[d.type]){if(!d.ia){stopped=true;break}skip++;continue}
+items.unshift({id:Date.now()+i,img:t.url,type:d.type,col:d.couleur||'',warm:[1,2,3].indexOf(+d.chaleur)>-1?+d.chaleur:2,style:+d.style===2?2:1,rain:!!d.impermeable});
+ok++;if(ok%5===0){save();render()}
+}catch(err){skip++}
+}
+}finally{
+filter='all';save();renderFilters();render();batchBusy=false;
+}
+$('msg').textContent=stopped?'Reconnaissance indisponible (connexion ?) : '+ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':'')+'. Réessayez avec le réseau.':ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':'')+(skip?', '+skip+' photo'+(skip>1?'s':'')+' ignorée'+(skip>1?'s':''):'')+'. Vérifiez les fiches : touchez le crayon pour corriger.';
+toast(ok+' vêtement'+(ok>1?'s':'')+' ajouté'+(ok>1?'s':''));
+}
 async function onPick(e){
-var f=e.target.files&&e.target.files[0];if(!f)return;
+var fl=e.target.files;
+if(fl&&fl.length>1){var arr=Array.prototype.slice.call(fl);e.target.value='';onBatch(arr);return}
+var f=fl&&fl[0];if(!f)return;
 $('msg').textContent='Analyse de la photo en cours. Au premier usage, le modèle de reconnaissance se télécharge (environ 90 Mo, une seule fois).';
 try{
 var a=await shrink(f,640),t=await shrink(f,240);
